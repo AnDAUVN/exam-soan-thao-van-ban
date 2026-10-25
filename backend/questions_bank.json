@@ -1,0 +1,586 @@
+{
+  "config": {
+    "mcq_count": 10
+  },
+  "multiple_choice": [
+    {
+      "id": 1,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Công việc nào không thuộc bước chuẩn bị soạn thảo văn bản?",
+      "options": [
+        "Xác định mục đích văn bản",
+        "Xác định nội dung và tên loại",
+        "Xác định đối tượng nhận",
+        "Trình người có thẩm quyền ký ban hành"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 2,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Văn bản nào sau đây quy định về công tác văn thư và thể thức văn bản hành chính?",
+      "options": [
+        "Thông tư 01/2011/TT-VPCP của Bộ Nội vụ",
+        "Nghị định 30/2020/NĐ-CP của Chính phủ",
+        "Nghị định 30/2020/NĐ-QH của Quốc hội",
+        "Thông tư 01/2011/TT-BNV của Văn phòng Chính phủ"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 3,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Ký hiệu gồm tên viết tắt cơ quan ban hành và tên viết tắt đơn vị soạn thảo hoặc lĩnh vực giải quyết được dùng cho loại nào?",
+      "options": [
+        "Công văn",
+        "Quyết định cá biệt",
+        "Thông báo",
+        "Tờ trình"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 4,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Giả định ABC là tên viết tắt cơ quan và HC là đơn vị soạn thảo, công văn áp dụng Nghị định 30 được ghi thế nào?",
+      "options": [
+        "Số: 07/ABC-HC",
+        "Số: 07/CV-ABC",
+        "Số: 07/TB-ABC",
+        "Số: 07/HC-CV"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 5,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Phòng chuyên môn đề xuất phương án mua sắm để người có thẩm quyền xem xét phê duyệt. Loại văn bản phù hợp nhất là gì?",
+      "options": [
+        "Tờ trình",
+        "Biên bản",
+        "Thông báo kết quả",
+        "Giấy giới thiệu"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 6,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Nhóm từ nào phù hợp nhất với văn phong hành chính công vụ?",
+      "options": [
+        "Từ ngữ hành chính chính xác và dễ hiểu",
+        "Từ địa phương ít người biết",
+        "Từ ngữ hoa mỹ giàu cảm xúc",
+        "Tiếng lóng thịnh hành"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 7,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Với văn bản hành chính giấy thuộc diện phải đóng dấu, nhận định nào đầy đủ nhất?",
+      "options": [
+        "Chỉ cần có chữ ký của bất kỳ nhân viên nào",
+        "Có chữ ký và dấu thì mọi nội dung đều hợp pháp",
+        "Chỉ cần dấu đỏ, không cần chữ ký",
+        "Cần đúng thẩm quyền, nội dung, trình tự và thể thức, có chữ ký hợp lệ và dấu theo quy định"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 8,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Để câu “Phòng Kinh doanh muốn xin Ban Giám đốc trang bị thêm một máy vi tính” phù hợp văn phong hành chính hơn, nên thay cụm nào?",
+      "options": [
+        "Thay “Phòng Kinh doanh” bằng “bọn em”",
+        "Thay “máy vi tính” bằng “đồ xịn”",
+        "Thay “trang bị” bằng “tậu”",
+        "Thay “muốn xin” bằng “đề nghị”"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 9,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Câu 1: Thẩm quyền ban hành Tờ trình gồm?",
+      "options": [
+        "Cấp trên gởi cho cấp dưới",
+        "Cấp dưới gởi lên cấp trên",
+        "Ngang cấp gởi cho nhau",
+        "Tất cả đều đúng"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 10,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Giả định ABC là tên viết tắt cơ quan, thông báo số 05 áp dụng Nghị định 30 được ghi thế nào?",
+      "options": [
+        "Số: 05/CV-ABC",
+        "Số: 05/Tb-ABC",
+        "Số: 05/ABC-TB",
+        "Số: 05/TB-ABC"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 11,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Loại văn bản dùng để trao đổi công tác, đề nghị phối hợp hoặc phúc đáp giữa cơ quan, tổ chức là gì?",
+      "options": [
+        "Biên bản cuộc họp",
+        "Quyết định bổ nhiệm",
+        "Giấy nghỉ phép",
+        "Công văn"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 12,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Tập hợp đặc điểm nào phù hợp với văn phong hành chính công vụ?",
+      "options": [
+        "Đa nghĩa, cảm tính, giàu hình ảnh và tùy hứng",
+        "Chính xác, khách quan, trang trọng và theo thể thức",
+        "Mơ hồ, khoa trương, ưu tiên cảm xúc người viết",
+        "Suồng sã, hài hước, dùng nhiều tiếng lóng"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 13,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Trước khi ký ban hành, cần kiểm tra nhóm nội dung nào đầy đủ nhất?",
+      "options": [
+        "Chỉ kiểm tra màu giấy",
+        "Nội dung, thẩm quyền, thể thức, kỹ thuật và lỗi ngôn ngữ",
+        "Chỉ kiểm tra số trang",
+        "Chỉ kiểm tra chữ ký ở bản dự thảo"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 14,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Nghị định 30 áp dụng trực tiếp đối với nhóm nào sau đây?",
+      "options": [
+        "Chỉ doanh nghiệp tư nhân nước ngoài",
+        "Cơ quan, tổ chức nhà nước và doanh nghiệp nhà nước",
+        "Mọi cá nhân trong mọi thư từ riêng",
+        "Chỉ học sinh viết đơn"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 15,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Văn bản hành chính hình thành chủ yếu trong hoạt động nào?",
+      "options": [
+        "Bình luận giải trí trên mạng",
+        "Sáng tác truyện ngắn",
+        "Chỉ đạo, điều hành và giải quyết công việc của cơ quan, tổ chức",
+        "Ghi nhật ký cá nhân"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 16,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Thể thức văn bản được hiểu phù hợp nhất là gì?",
+      "options": [
+        "Chỉ tên người nhận",
+        "Chỉ nội dung kết luận",
+        "Tập hợp các thành phần cấu thành văn bản theo quy định",
+        "Chỉ phông chữ và màu mực"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 17,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Kỹ thuật trình bày văn bản bao gồm nội dung nào?",
+      "options": [
+        "Khổ giấy, lề, phông chữ, cỡ chữ và vị trí các thành phần",
+        "Chỉ thống kê nơi nhận",
+        "Chỉ phân công người ký",
+        "Chỉ chọn chủ đề nghiên cứu"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 18,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Khổ giấy thông thường của văn bản hành chính theo Nghị định 30 là gì?",
+      "options": [
+        "A5, 148 × 210 mm",
+        "A3, 297 × 420 mm trong mọi trường hợp",
+        "A4, 210 × 297 mm",
+        "Letter, 216 × 279 mm"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 19,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Khoảng cách lề trên và lề dưới được quy định thế nào?",
+      "options": [
+        "5–10 mm",
+        "30–35 mm",
+        "20–25 mm",
+        "40–45 mm"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 20,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Khoảng cách lề trái được quy định thế nào?",
+      "options": [
+        "30–35 mm",
+        "40–45 mm",
+        "10–15 mm",
+        "15–20 mm"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 21,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Khoảng cách lề phải được quy định thế nào?",
+      "options": [
+        "15–20 mm",
+        "5–10 mm",
+        "30–35 mm",
+        "35–40 mm"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 22,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Phông chữ tiếng Việt dùng cho văn bản hành chính theo Nghị định 30 là gì?",
+      "options": [
+        "Bất kỳ phông nào chỉ cần dễ đọc",
+        "Arial, mã VNI, màu đỏ",
+        "Times New Roman, bộ mã Unicode theo TCVN 6909:2001, màu đen",
+        "Calibri, bảng mã TCVN3, màu xanh"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 23,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Nội dung văn bản thông thường sử dụng cỡ chữ nào?",
+      "options": [
+        "18 đến 20",
+        "8 đến 9",
+        "13 đến 14",
+        "10 đến 11"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 24,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Cách ghi tiêu ngữ nào đúng?",
+      "options": [
+        "Độc lập - Tự do - Hạnh phúc",
+        "Độc lập, Tự do, Hạnh phúc",
+        "Độc Lập - Tự Do - Hạnh Phúc",
+        "ĐỘC LẬP TỰ DO HẠNH PHÚC"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 25,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Số văn bản dưới 10 được ghi như thế nào?",
+      "options": [
+        "Viết hoàn toàn bằng chữ",
+        "Bỏ số, chỉ ghi ký hiệu",
+        "Thêm số 0 phía trước",
+        "Bắt buộc dùng số La Mã"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 26,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Theo thể thức thời gian ban hành, ngày 5 tháng 2 năm 2026 được ghi thế nào?",
+      "options": [
+        "ngày 05 tháng 02 năm 2026",
+        "ngày 05 tháng 2 năm 26",
+        "05/02/26 thay cho toàn bộ dòng thời gian",
+        "ngày 5 tháng 2 năm 26"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 27,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Dòng địa danh và thời gian ban hành được trình bày bằng kiểu chữ nào?",
+      "options": [
+        "Chữ in thường, gạch chân, cỡ 8",
+        "Chữ in hoa, đứng, cỡ 20",
+        "Chữ in thường, nghiêng, cỡ 13–14",
+        "Chữ màu đỏ bắt buộc"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 28,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Tên loại như THÔNG BÁO được trình bày thế nào?",
+      "options": [
+        "Chữ viết tay, canh phải",
+        "Chữ thường, nghiêng, canh trái",
+        "Chữ in hoa, đứng, đậm, canh giữa",
+        "Ẩn hoàn toàn ở mọi văn bản có tên loại"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 29,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Đối với công văn, trích yếu được đặt ở đâu?",
+      "options": [
+        "Sau chữ ký người nhận",
+        "Trên quốc hiệu",
+        "Dưới số và ký hiệu, sau chữ V/v",
+        "Trong dấu giáp lai"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 30,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Từ “Nơi nhận” ở cuối văn bản được trình bày thế nào?",
+      "options": [
+        "Cỡ 8, đứng, không dấu câu",
+        "Cỡ 18, in hoa toàn bộ, gạch chân",
+        "Cỡ 14, màu đỏ",
+        "Cỡ 12, nghiêng, đậm, có dấu hai chấm"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 31,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Thông tin “Kính gửi” cần bảo đảm điều gì trước hết?",
+      "options": [
+        "Luôn bỏ trống để văn thư tự đoán",
+        "Đúng tên và đúng đối tượng có trách nhiệm giải quyết",
+        "Ghi càng nhiều đơn vị càng tốt",
+        "Chỉ ghi biệt danh người nhận"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    },
+    {
+      "id": 32,
+      "group": "Nghị định 30/2020/NĐ-CP",
+      "question": "Khoảng cách giữa các đoạn văn tối thiểu là bao nhiêu?",
+      "options": [
+        "6 pt",
+        "30 pt",
+        "0 pt trong mọi trường hợp",
+        "Một trang trắng"
+      ],
+      "correct_index": 0,
+      "explanation": ""
+    }
+  ],
+  "practice_cases_a": [
+    {
+      "case_id": "A1",
+      "doc_type": "CÔNG VĂN ĐỀ NGHỊ",
+      "title": "Đề nghị khắc phục tình trạng gián đoạn cấp nước",
+      "context": "Công ty Anh/Chị đang tập trung sản xuất để giao hàng cho khách hàng. Trong hai tuần gần đây, nguồn nước tại công ty nhiều lần bị gián đoạn hoặc có áp lực yếu, ảnh hưởng đến hoạt động sản xuất và vệ sinh nhà xưởng.\n\nAnh/chị hãy soạn thảo văn bản gửi đơn vị trực tiếp cung cấp nước để đề nghị kiểm tra nguyên nhân, có biện pháp khắc phục và phối hợp thông tin khi có kế hoạch gián đoạn cấp nước.",
+      "requirements": [
+        "Được giả định tên công ty, đơn vị nhận, thời gian và người có thẩm quyền ký;",
+        "Các thông tin phải hợp lý, nhất quán;",
+        "Văn bản có đầy đủ thành phần thể thức đã học theo Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "A2",
+      "doc_type": "CÔNG VĂN ĐỀ NGHỊ",
+      "title": "Đề nghị sửa chữa đường truyền Internet",
+      "context": "Công ty Anh/Chị đang triển khai tiếp nhận và xử lý đơn hàng trực tuyến. Tuy nhiên, đường truyền Internet thường xuyên mất kết nối, làm gián đoạn giao dịch và chậm phản hồi khách hàng. Công ty đã liên hệ bộ phận hỗ trợ nhưng tình trạng chưa được khắc phục ổn định.\n\nAnh/chị hãy soạn thảo văn bản gửi doanh nghiệp cung cấp dịch vụ Internet để đề nghị kiểm tra, khắc phục sự cố và thông tin thời gian hoàn thành.",
+      "requirements": [
+        "Được giả định tên công ty, đơn vị nhận, thời gian và người có thẩm quyền ký;",
+        "Các thông tin phải hợp lý, nhất quán;",
+        "Văn bản có đầy đủ thành phần thể thức đã học theo Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "A3",
+      "doc_type": "CÔNG VĂN ĐỀ NGHỊ",
+      "title": "Đề nghị nhà cung cấp giao hàng đúng tiến độ",
+      "context": "Công ty Anh/Chị đã ký hợp đồng mua nguyên phụ liệu của Công ty (anh chị tự giả định). Theo hợp đồng, hàng phải được giao đầy đủ trước ngày .... tháng ...... Đến ngày .... tháng ...., công ty mới nhận được khoảng 60% số lượng, ảnh hưởng đến tiến độ sản xuất.\nAnh/chị hãy soạn thảo văn bản gửi Công ty ........ để đề nghị giao phần hàng còn thiếu và xác nhận lịch giao cụ thể.",
+      "requirements": [
+        "Được giả định tên công ty, đơn vị nhận, thời gian và người có thẩm quyền ký;",
+        "Các thông tin phải hợp lý, nhất quán;",
+        "Văn bản có đầy đủ thành phần thể thức đã học theo Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "A4",
+      "doc_type": "CÔNG VĂN ĐỀ NGHỊ",
+      "title": "Đề nghị phối hợp bảo đảm an ninh",
+      "context": "Trong thời gian gần đây, khu vực cổng Công ty của Anh/chị thường xuất hiện người lạ tụ tập vào cuối giờ chiều. Công ty cũng ghi nhận hai vụ mất tài sản tại khu vực để xe, gây lo lắng cho người lao động.\nAnh/chị hãy soạn thảo văn bản gửi cơ quan nơi công ty đặt trụ sở để cung cấp thông tin và đề nghị phối hợp kiểm tra, hướng dẫn các biện pháp bảo đảm an ninh.",
+      "requirements": [
+        "Được giả định tên Công ty, đơn vị nhận, thời gian và người có thẩm quyền ký;",
+        "Các thông tin phải hợp lý, nhất quán;",
+        "Văn bản có đầy đủ thành phần thể thức đã học theo Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "A5",
+      "doc_type": "CÔNG VĂN ĐỀ NGHỊ",
+      "title": "Đề nghị xử lý tình trạng thu gom rác không đúng lịch",
+      "context": "Công ty của Anh/Chị có hợp đồng thu gom rác thải sinh hoạt với một đơn vị dịch vụ môi trường. Trong tháng vừa qua, đơn vị này nhiều lần không thu gom theo lịch đã thống nhất, khiến rác tồn đọng, phát sinh mùi và ảnh hưởng đến môi trường làm việc.\n\nAnh/chị hãy soạn thảo văn bản gửi đơn vị thu gom để đề nghị xử lý lượng rác tồn đọng và thống nhất biện pháp duy trì lịch thu gom.",
+      "requirements": [
+        "Được giả định tên Công ty, đơn vị nhận, thời gian và người có thẩm quyền ký;",
+        "Các thông tin phải hợp lý, nhất quán;",
+        "Văn bản có đầy đủ thành phần thể thức đã học theo Nghị định 30/2020/NĐ-CP."
+      ]
+    }
+  ],
+  "practice_cases_b": [
+    {
+      "case_id": "B1",
+      "doc_type": "TỜ TRÌNH",
+      "title": "Tờ trình về việc xin phê duyệt bổ sung nhân sự",
+      "context": "Công ty/Đơn vị của Anh/Chị đang triển khai mở rộng hoạt động và tiếp nhận các dự án mới. Hiện nay, khối lượng công việc tại bộ phận chuyên môn tăng đột biến dẫn đến tình trạng quá tải, nhân sự hiện tại không đảm bảo tiến độ và chất lượng công việc.\n\nAnh/chị hãy soạn thảo văn bản phù hợp gửi Ban Giám đốc (hoặc Lãnh đạo cấp trên) đề xuất phê duyệt chủ trương tuyển dụng bổ sung nhân sự cho bộ phận.",
+      "requirements": [
+        "Được giả định tên cơ quan/công ty, bộ phận công tác, người nhận văn bản và người ký;",
+        "Nêu rõ lý do, sự cần thiết và đề xuất cụ thể số lượng, vị trí chức danh cần bổ sung;",
+        "Đầy đủ các thành phần thể thức văn bản theo chuẩn Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "B2",
+      "doc_type": "TỜ TRÌNH",
+      "title": "Tờ trình về việc xin trang bị, mua sắm máy móc thiết bị làm việc",
+      "context": "Hệ thống máy móc, thiết bị văn phòng (máy tính, máy in, thiết bị chuyên dụng...) tại phòng ban của Anh/Chị đã qua nhiều năm sử dụng, hiện thường xuyên bị hỏng hóc, cấu hình lạc hậu gây ảnh hưởng lớn đến hiệu suất công việc hàng ngày.\n\nAnh/chị hãy soạn thảo văn bản phù hợp gửi Ban Giám đốc (hoặc Lãnh đạo cơ quan) để báo cáo hiện trạng và đề xuất kinh phí mua sắm, thay thế trang thiết bị làm việc mới.",
+      "requirements": [
+        "Được giả định tên đơn vị, cấp có thẩm quyền phê duyệt, thời gian và dự trù kinh phí;",
+        "Trình bày rõ sự cần thiết, danh mục thiết bị dự kiến mua sắm và hiệu quả mang lại;",
+        "Đúng thể thức và kỹ thuật trình bày văn bản theo Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "B3",
+      "doc_type": "THÔNG BÁO",
+      "title": "Thông báo về việc phân công nhiệm vụ và triển khai kế hoạch công tác",
+      "context": "Thực hiện kế hoạch hoạt động của cơ quan/doanh nghiệp, Lãnh đạo đơn vị đã phê duyệt kế hoạch triển khai nhiệm vụ mới và yêu cầu các phòng ban, cán bộ nhân viên phối hợp thực hiện theo đúng tiến độ được giao.\n\nAnh/chị hãy thừa lệnh (hoặc thừa ủy quyền/ký văn bản) soạn thảo văn bản gửi các đơn vị trực thuộc và toàn thể nhân viên về việc phân công nhiệm vụ được giao.",
+      "requirements": [
+        "Được giả định tên cơ quan ban hành, căn cứ kế hoạch, đối tượng tiếp nhận văn bản;",
+        "Nêu rõ các nội dung nhiệm vụ phân công, thời hạn hoàn thành và trách nhiệm phối hợp;",
+        "Văn bản có đầy đủ thành phần thể thức theo Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "B4",
+      "doc_type": "THÔNG BÁO",
+      "title": "Thông báo thông tin hoạt động chung của cơ quan, doanh nghiệp",
+      "context": "Nhân dịp kỷ niệm ngày thành lập (hoặc tổ chức sự kiện chuyên môn/hoạt động định kỳ), cơ quan/công ty của Anh/Chị sẽ tổ chức chuỗi hoạt động chung nhằm tổng kết hoạt động và giao lưu nâng cao tinh thần đoàn kết.\n\nAnh/chị hãy soạn thảo văn bản gửi toàn thể cán bộ, nhân viên thông tin chi tiết về kế hoạch tổ chức hoạt động để các bộ phận chủ động sắp xếp công việc và tham gia.",
+      "requirements": [
+        "Được giả định tên công ty/cơ quan, thời gian, địa điểm tổ chức và thành phần tham gia;",
+        "Nội dung văn bản rõ ràng, lịch trình cụ thể và phân công chuẩn bị chu đáo;",
+        "Đúng chuẩn thể thức văn bản theo quy định của Nghị định 30/2020/NĐ-CP."
+      ]
+    },
+    {
+      "case_id": "B5",
+      "doc_type": "THÔNG BÁO",
+      "title": "Nhiệm vụ được giao",
+      "context": "Nhằm bảo đảm an toàn, tiết kiệm và hạn chế hư hỏng trong quá trình sử dụng trang thiết bị, máy móc, Ban Giám đốc công ty yêu cầu toàn thể nhân viên nghiêm túc chấp hành các quy định sử dụng thiết bị đã được công ty phê duyệt. Phòng Hành chính được giao soạn thảo văn bản gửi toàn thể nhân viên để triển khai thực hiện.\n\nAnh/chị hãy lựa chọn loại văn bản phù hợp và soạn thảo hoàn chỉnh văn bản trên.",
+      "requirements": [
+        "Anh/chị được tự giả định tên công ty, tên phòng ban, người có thẩm quyền ký, thời điểm thực hiện và từ 4 đến 6 quy định sử dụng trang thiết bị, máy móc đã được công ty phê duyệt.",
+        "Các thông tin giả định phải hợp lý, nhất quán; văn bản bảo đảm đầy đủ thành phần thể thức, nội dung rõ ràng và văn phong phù hợp."
+      ]
+    },
+    {
+      "case_id": "B6",
+      "doc_type": "THÔNG BÁO",
+      "title": "Nhiệm vụ được giao",
+      "context": "Qua kiểm tra, công ty nhận thấy một số nhân viên chưa thực hiện tốt việc bảo mật thông tin trong quá trình làm việc, như chia sẻ tài khoản sử dụng chung, để tài liệu nội bộ không đúng nơi quy định và gửi dữ liệu công việc qua các kênh chưa được công ty cho phép.\n\nBan Giám đốc yêu cầu toàn thể nhân viên nghiêm túc thực hiện các quy định bảo mật thông tin đã được công ty phê duyệt. Phòng Hành chính được giao soạn thảo văn bản gửi toàn thể nhân viên để triển khai thực hiện.\n\nAnh/chị hãy lựa chọn loại văn bản phù hợp và soạn thảo hoàn chỉnh văn bản trên.",
+      "requirements": [
+        "Anh/chị được tự giả định tên công ty, tên phòng ban, người có thẩm quyền ký, thời điểm thực hiện và từ 4 đến 6 quy định bảo mật thông tin đã được công ty phê duyệt.",
+        "Các thông tin giả định phải hợp lý, nhất quán; văn bản bảo đảm đầy đủ thành phần thể thức, nội dung rõ ràng và văn phong phù hợp."
+      ]
+    },
+    {
+      "case_id": "B7",
+      "doc_type": "THÔNG BÁO",
+      "title": "Thông tin hoạt động",
+      "context": "Công ty dự kiến tổ chức một buổi giới thiệu sản phẩm mới nhằm cung cấp cho khách hàng thông tin về đặc điểm, công dụng và các dịch vụ đi kèm sản phẩm. Ban Giám đốc giao Phòng Kinh doanh soạn thảo văn bản gửi toàn thể khách hàng để cung cấp thông tin chính thức về hoạt động này.\n\nAnh/chị hãy lựa chọn loại văn bản phù hợp và soạn thảo hoàn chỉnh văn bản trên.",
+      "requirements": [
+        "Anh/chị được tự giả định tên công ty, tên phòng ban, người có thẩm quyền ký, sản phẩm mới, thời gian, địa điểm và nội dung chương trình.",
+        "Các thông tin giả định phải hợp lý, nhất quán; văn bản bảo đảm đầy đủ thành phần thể thức, nội dung rõ ràng và văn phong phù hợp."
+      ]
+    },
+    {
+      "case_id": "B8",
+      "doc_type": "THÔNG BÁO",
+      "title": "Thông báo thông tin hoạt động",
+      "context": "Nhằm tạo điều kiện cho người lao động nghỉ ngơi, giao lưu và tăng cường sự gắn kết, công ty tổ chức một chuyến du lịch theo kế hoạch đã được Ban Giám đốc phê duyệt. Phòng Hành chính được giao soạn thảo văn bản gửi toàn thể nhân viên để cung cấp thông tin chính thức về chuyến đi.\n\nAnh/chị hãy lựa chọn loại văn bản phù hợp và soạn thảo hoàn chỉnh văn bản trên.",
+      "requirements": [
+        "Anh/chị được tự giả định tên công ty, tên phòng ban, người có thẩm quyền ký, đối tượng tham gia, thời gian, địa điểm và các hoạt động trong chuyến du lịch.",
+        "Các thông tin giả định phải hợp lý, nhất quán; văn bản bảo đảm đầy đủ thành phần thể thức, nội dung rõ ràng và văn phong phù hợp."
+      ]
+    },
+    {
+      "case_id": "B9",
+      "doc_type": "THÔNG BÁO",
+      "title": "Thông tin hoạt động",
+      "context": "Công ty phối hợp với một đơn vị tiếp nhận máu tổ chức chương trình hiến máu nhân đạo trên tinh thần tự nguyện. Chương trình đã được Ban Giám đốc phê duyệt và thống nhất với đơn vị phối hợp. Phòng Hành chính được giao soạn thảo văn bản gửi toàn thể nhân viên để cung cấp thông tin chính thức về chương trình.\n\nAnh/chị hãy lựa chọn loại văn bản phù hợp và soạn thảo hoàn chỉnh văn bản trên.",
+      "requirements": [
+        "Anh/chị được tự giả định tên công ty, tên phòng ban, đơn vị phối hợp, người có thẩm quyền ký, thời gian, địa điểm, nội dung chương trình và cách thức đăng ký tham gia.",
+        "Các thông tin giả định phải hợp lý, nhất quán; văn bản bảo đảm đầy đủ thành phần thể thức, nội dung rõ ràng và văn phong phù hợp."
+      ]
+    },
+    {
+      "case_id": "B10",
+      "doc_type": "TỜ TRÌNH",
+      "title": "Xin máy móc thiết bị",
+      "context": "Phòng ban nơi anh/chị công tác đang gặp khó khăn trong việc thực hiện nhiệm vụ do một số máy móc, thiết bị chưa đáp ứng nhu cầu sử dụng. Anh/chị được giao soạn thảo văn bản gửi Ban Giám đốc công ty để đề nghị xem xét, phê duyệt việc trang bị bổ sung máy móc, thiết bị cho phòng.\n\nAnh/chị hãy lựa chọn loại văn bản phù hợp và soạn thảo hoàn chỉnh văn bản trên.",
+      "requirements": [
+        "Anh/chị được tự giả định tên công ty, tên phòng ban, người có thẩm quyền ký và các thông tin cần thiết. Máy móc, thiết bị đề xuất phải phù hợp với chức năng của phòng ban và chuyên ngành đang học.",
+        "Các thông tin giả định phải hợp lý, nhất quán; văn bản bảo đảm đầy đủ thành phần thể thức, nội dung rõ ràng và văn phong phù hợp."
+      ]
+    }
+  ]
+}

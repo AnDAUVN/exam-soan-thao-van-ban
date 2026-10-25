@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Thi Môn Soạn Thảo Văn Bản (Nghị định 30/2020/NĐ-CP)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- 1. MÀN HÌNH ĐĂNG NHẬP PHÒNG THI -->
+    <div id="login-screen" class="flex-1 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 border border-slate-200">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-4 text-2xl">
+                    <i class="fa-solid fa-file-pen"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900">Phòng Thi Trực Tuyến</h1>
+                <p class="text-sm text-slate-500 mt-1">Môn: Soạn thảo văn bản hành chính</p>
+                <div class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200">
+                    <i class="fa-solid fa-scale-balanced"></i> Chuẩn Nghị định 30/2020/NĐ-CP (Ô 1 - Ô 9)
+                </div>
+            </div>
+
+            <form id="start-exam-form" class="space-y-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Khóa học</label>
+                        <select id="input-cohort" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-xs font-medium bg-white" onchange="onCohortChange()">
+                            <!-- Render dynamic cohorts -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Lớp thi</label>
+                        <select id="input-class" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-xs font-medium bg-white">
+                            <!-- Render dynamic classes -->
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Số báo danh (SBD)</label>
+                    <input type="text" id="input-student-sbd" required placeholder="Ví dụ: SBD01, 01..."
+                           class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Mã sinh viên</label>
+                    <input type="text" id="input-student-id" required placeholder="Ví dụ: SV2026001"
+                           class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Họ và tên thí sinh</label>
+                    <input type="text" id="input-student-name" required placeholder="Ví dụ: Nguyễn Văn An"
+                           class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Thời gian làm bài</label>
+                    <select id="input-duration" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="60">60 phút (Chuẩn)</option>
+                        <option value="90">90 phút (Thời lượng mở rộng)</option>
+                        <option value="75">75 phút</option>
+                        <option value="45">45 phút</option>
+                        <option value="5">5 phút (Thử nghiệm nhanh)</option>
+                    </select>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i> Bắt đầu làm bài thi
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <a href="/teacher" class="text-purple-600 font-bold hover:underline flex items-center gap-1">
+                    <i class="fa-solid fa-chalkboard-user"></i> Bàn chấm Giảng viên
+                </a>
+                <button type="button" onclick="openSpecModal()" class="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                    <i class="fa-solid fa-book-open"></i> Tra cứu Ô 1 - Ô 9
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. GIAO DIỆN PHÒNG THI CHÍNH THỨC -->
+    <div id="exam-screen" class="hidden flex-1 flex flex-col">
+        <!-- Top Bar -->
+        <header class="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-30 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-slate-800 text-base" id="header-student-name">Sinh viên</h2>
+                    <p class="text-xs text-slate-500">
+                        SBD: <span id="header-student-sbd" class="font-mono font-bold text-amber-600 mr-2">--</span>
+                        MSSV: <span id="header-student-id" class="font-mono font-semibold text-slate-700 mr-2">--</span>
+                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-semibold text-[11px]" id="header-cohort-class">--</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Timer Countdown -->
+            <div class="flex items-center gap-3 bg-slate-900 text-white px-5 py-2 rounded-xl shadow-inner">
+                <i class="fa-regular fa-clock text-amber-400 text-lg animate-pulse"></i>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Thời gian còn lại</div>
+                    <div id="exam-timer" class="font-mono text-xl font-bold text-amber-400">00:00:00</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-3">
+                <!-- Nút mở bảng đối chiếu thể thức NĐ 30 -->
+                <button onclick="openSpecModal()" class="px-3.5 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-table-columns text-blue-600"></i> Đối chiếu Ô 1 - Ô 9
+                </button>
+                <button id="btn-fullscreen" class="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-expand"></i> Toàn màn hình
+                </button>
+                <button id="btn-finish-exam" class="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-check-double"></i> Nộp bài thi
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <!-- Left Sidebar Navigation -->
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Phần thi</h3>
+                    <div class="space-y-1.5">
+                        <button id="nav-tab-quiz" onclick="switchTab('quiz')" 
+                                class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-between bg-blue-50 text-blue-700 font-semibold border-l-4 border-blue-600">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-list-check"></i> <span id="nav-quiz-title">1. Trắc nghiệm</span>
+                            </span>
+                            <span id="quiz-badge" class="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">0/--</span>
+                        </button>
+
+                        <button id="nav-tab-case1" onclick="switchTab('case1')" 
+                                class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-file-word text-blue-600"></i> 2. Văn bản thực hành 1 (4.0đ)
+                            </span>
+                            <span id="case1-status" class="text-xs text-slate-400"><i class="fa-regular fa-circle"></i></span>
+                        </button>
+
+                        <button id="nav-tab-case2" onclick="switchTab('case2')" 
+                                class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-file-word text-blue-600"></i> 3. Văn bản thực hành 2 (4.0đ)
+                            </span>
+                            <span id="case2-status" class="text-xs text-slate-400"><i class="fa-regular fa-circle"></i></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Fast Nav for Quiz Questions -->
+                <div id="quiz-grid-card" class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Danh sách câu trắc nghiệm</h3>
+                    <div class="grid grid-cols-5 gap-2" id="quiz-nav-grid"></div>
+                </div>
+
+                <!-- Card tra cứu nhanh Ô 1 - Ô 9 -->
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 text-xs space-y-2 shadow-sm">
+                    <div class="font-bold flex items-center justify-between text-blue-900">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-compass"></i> Sổ tay Ô 1 - Ô 9:</span>
+                        <a href="/api/exam/download-spec" download class="text-blue-600 hover:underline"><i class="fa-solid fa-download"></i> Tải về</a>
+                    </div>
+                    <p class="text-slate-600 text-[11px] leading-relaxed">
+                        Đối chiếu chi tiết cỡ chữ, kiểu chữ, lùi đầu dòng, đường kẻ của 9 ô thành phần thể thức theo Nghị định 30.
+                    </p>
+                    <button onclick="openSpecModal()" class="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-center transition">
+                        Xem bảng chuẩn đối chiếu
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content Area (Right 3 cols) -->
+            <div class="lg:col-span-3">
+                
+                <!-- TAB 1: TRẮC NGHIỆM -->
+                <div id="content-quiz" class="space-y-4">
+                    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">Phần 1: Trắc nghiệm kiến thức Nghị định 30</h3>
+                            <p class="text-xs text-slate-500">Mỗi sinh viên một mã đề riêng biệt (Đã xáo trộn câu hỏi và đáp án)</p>
+                        </div>
+                        <button onclick="submitQuizAnswers()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition">
+                            Lưu & Nộp Trắc nghiệm
+                        </button>
+                    </div>
+
+                    <div id="quiz-questions-list" class="space-y-4"></div>
+                </div>
+
+                <!-- TAB 2: THỰC HÀNH VĂN BẢN 1 -->
+                <div id="content-case1" class="hidden space-y-4">
+                    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                        <div class="flex items-center justify-between border-b pb-4 mb-4">
+                            <div>
+                                <span class="px-2.5 py-1 bg-purple-100 text-purple-700 font-bold text-xs rounded-md" id="case1-badge">Văn bản thực hành 1 (4.0 điểm)</span>
+                                <h3 class="text-xl font-bold text-slate-800 mt-2" id="case1-title">Tình huống thực hành 1</h3>
+                            </div>
+                        </div>
+
+                        <div class="mb-5 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tình huống thực tế:</h4>
+                            <p class="text-sm text-slate-700 leading-relaxed" id="case1-context"></p>
+                        </div>
+
+                        <div class="mb-6">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Yêu cầu soạn thảo:</h4>
+                            <ul class="list-disc pl-5 text-sm text-slate-700 space-y-1.5" id="case1-requirements"></ul>
+                        </div>
+                        <!-- Nút Tải Phôi Word Bảo Mật Chống Gian Lận -->
+                        <div class="mb-5 p-4 bg-amber-50 rounded-xl border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div>
+                                <span class="font-bold text-xs text-amber-900 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-shield-halved text-amber-600"></i> BẮT BUỘC: Soạn thảo trên Phôi Thi chính thức
+                                </span>
+                                <p class="text-[11px] text-amber-700 mt-0.5">
+                                    File phôi đã nhúng mã bảo mật cá nhân & căn sẵn lề A4 NĐ 30. Hệ thống sẽ phát hiện nếu nộp file mẫu ngoài!
+                                </p>
+                            </div>
+                            <a id="btn-download-template-1" href="#" download 
+                               class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow transition flex items-center gap-1.5 whitespace-nowrap">
+                                <i class="fa-solid fa-file-arrow-down"></i> Tải Phôi Word VB 1
+                            </a>
+                        </div>
+
+                        <!-- Khu vực Nộp Bài Word -->
+                        <div class="border-t pt-5">
+                            <h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i> Nộp file Word (.docx) bài làm:
+                            </h4>
+                            <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 transition cursor-pointer bg-slate-50"
+                                 onclick="document.getElementById('file-upload-case1').click()">
+                                <i class="fa-solid fa-file-word text-4xl text-blue-600 mb-2"></i>
+                                <p class="text-sm font-medium text-slate-700">Click để chọn file hoặc kéo thả file Word vào đây</p>
+                                <p class="text-xs text-slate-400 mt-1">Chỉ chấp nhận file .docx (Hệ thống quét đối chiếu từ Ô 1 đến Ô 9 theo Nghị định 30)</p>
+                                <input type="file" id="file-upload-case1" accept=".docx" class="hidden" onchange="handleFileUpload(1)">
+                            </div>
+
+                            <!-- Kết quả chấm tự động thể thức Case 1 -->
+                            <div id="case1-grade-result" class="mt-4 hidden p-4 bg-emerald-50 border border-emerald-200 rounded-xl"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: THỰC HÀNH VĂN BẢN 2 -->
+                <div id="content-case2" class="hidden space-y-4">
+                    <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                        <div class="flex items-center justify-between border-b pb-4 mb-4">
+                            <div>
+                                <span class="px-2.5 py-1 bg-indigo-100 text-indigo-700 font-bold text-xs rounded-md" id="case2-badge">Văn bản thực hành 2 (4.0 điểm)</span>
+                                <h3 class="text-xl font-bold text-slate-800 mt-2" id="case2-title">Tình huống thực hành 2</h3>
+                            </div>
+                        </div>
+
+                        <div class="mb-5 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tình huống thực tế:</h4>
+                            <p class="text-sm text-slate-700 leading-relaxed" id="case2-context"></p>
+                        </div>
+
+                        <div class="mb-6">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Yêu cầu soạn thảo:</h4>
+                            <ul class="list-disc pl-5 text-sm text-slate-700 space-y-1.5" id="case2-requirements"></ul>
+                        </div>
+                        <!-- Nút Tải Phôi Word Bảo Mật Chống Gian Lận -->
+                        <div class="mb-5 p-4 bg-amber-50 rounded-xl border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div>
+                                <span class="font-bold text-xs text-amber-900 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-shield-halved text-amber-600"></i> BẮT BUỘC: Soạn thảo trên Phôi Thi chính thức
+                                </span>
+                                <p class="text-[11px] text-amber-700 mt-0.5">
+                                    File phôi đã nhúng mã bảo mật cá nhân & căn sẵn lề A4 NĐ 30. Hệ thống sẽ phát hiện nếu nộp file mẫu ngoài!
+                                </p>
+                            </div>
+                            <a id="btn-download-template-2" href="#" download 
+                               class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow transition flex items-center gap-1.5 whitespace-nowrap">
+                                <i class="fa-solid fa-file-arrow-down"></i> Tải Phôi Word VB 2
+                            </a>
+                        </div>
+
+                        <!-- Khu vực Nộp Bài Word -->
+                        <div class="border-t pt-5">
+                            <h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i> Nộp file Word (.docx) bài làm:
+                            </h4>
+                            <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 transition cursor-pointer bg-slate-50"
+                                 onclick="document.getElementById('file-upload-case2').click()">
+                                <i class="fa-solid fa-file-word text-4xl text-blue-600 mb-2"></i>
+                                <p class="text-sm font-medium text-slate-700">Click để chọn file hoặc kéo thả file Word vào đây</p>
+                                <p class="text-xs text-slate-400 mt-1">Chỉ chấp nhận file .docx (Hệ thống quét đối chiếu từ Ô 1 đến Ô 9 theo Nghị định 30)</p>
+                                <input type="file" id="file-upload-case2" accept=".docx" class="hidden" onchange="handleFileUpload(2)">
+                            </div>
+
+                            <!-- Kết quả chấm tự động thể thức Case 2 -->
+                            <div id="case2-grade-result" class="mt-4 hidden p-4 bg-emerald-50 border border-emerald-200 rounded-xl"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. MODAL BẢNG ĐỐI CHIẾU QUY CHUẨN Ô 1 ĐẾN Ô 9 -->
+    <div id="modal-spec" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-table-list"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">Bảng Đối Chiếu Thể Thức (Ô 1 - Ô 9) Theo Nghị Định 30</h3>
+                        <p class="text-xs text-slate-500">Quy chuẩn kỹ thuật trình bày văn bản hành chính</p>
+                    </div>
+                </div>
+                <button onclick="closeSpecModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Table -->
+            <div class="flex-1 overflow-y-auto pr-2 space-y-4 text-xs text-slate-700">
+                <!-- Sơ đồ vị trí 9 ô -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="font-bold text-slate-800 text-sm mb-2 text-center">SƠ ĐỒ BỐ CỤC 9 Ô THÀNH PHẦN THỂ THỨC</div>
+                    <div class="grid grid-cols-2 gap-3 text-center font-mono">
+                        <div class="border-2 border-dashed border-blue-400 bg-blue-50 p-2.5 rounded">
+                            <b>Ô 2:</b> TÊN CƠ QUAN BAN HÀNH<br>
+                            <span class="text-[11px] text-slate-500"><b>Ô 3:</b> Số: .../...-...</span>
+                        </div>
+                        <div class="border-2 border-dashed border-blue-400 bg-blue-50 p-2.5 rounded">
+                            <b>Ô 1:</b> QUỐC HIỆU & TIÊU NGỮ<br>
+                            <span class="text-[11px] text-slate-500"><b>Ô 4:</b> Địa danh, ngày... tháng... năm...</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 border-2 border-dashed border-purple-400 bg-purple-50 p-2 rounded text-center">
+                        <b>Ô 5a / 5b:</b> TÊN LOẠI & TRÍCH YẾU NỘI DUNG (HOẶC V/v CỦA CÔNG VĂN)
+                    </div>
+                    <div class="mt-3 border-2 border-dashed border-emerald-400 bg-emerald-50 p-3 rounded text-left">
+                        <b>Ô 6: NỘI DUNG VĂN BẢN</b> (Cỡ 13-14, Dàn đều Ctrl+J, Thụt lề đầu dòng 1 - 1.27cm, Spacing đoạn min 6pt)
+                    </div>
+                    <div class="mt-3 grid grid-cols-2 gap-3 text-left font-mono">
+                        <div class="border-2 border-dashed border-amber-400 bg-amber-50 p-2 rounded">
+                            <b>Ô 9b: Nơi nhận:</b> (Cuối trang)<br>
+                            - Cỡ 12, nghiêng, đậm.<br>
+                            - Liệt kê: Cỡ 11, thường đứng.
+                        </div>
+                        <div class="border-2 border-dashed border-amber-400 bg-amber-50 p-2 rounded text-center">
+                            <b>Ô 7a, 7b & 8: THẨM QUYỀN KÝ & CON DẤU</b><br>
+                            - Quyền hạn/Chức vụ: Cỡ 13-14 hoa đậm<br>
+                            - Họ và tên: Cỡ 13-14 đứng đậm
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bảng chi tiết từng ô -->
+                <table class="w-full border-collapse border border-slate-300 text-left">
+                    <thead class="bg-slate-100 font-bold text-slate-800">
+                        <tr>
+                            <th class="border border-slate-300 p-2 text-center w-12">Ô</th>
+                            <th class="border border-slate-300 p-2 w-48">Thành phần thể thức</th>
+                            <th class="border border-slate-300 p-2 w-28 text-center">Cỡ chữ (Size)</th>
+                            <th class="border border-slate-300 p-2">Quy cách chi tiết & Lưu ý</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 1</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Quốc hiệu & Tiêu ngữ</td>
+                            <td class="border border-slate-300 p-2 text-center">12 - 14</td>
+                            <td class="border border-slate-300 p-2">
+                                • <b>Quốc hiệu:</b> In hoa, đứng, đậm, cỡ 12-13. <i>Tuyệt đối không trình bày thành 2 dòng</i>.<br>
+                                • <b>Tiêu ngữ:</b> Cỡ 13-14, chữ thường, đứng, đậm, canh giữa. Có gạch nối giữa các từ. Dưới có đường kẻ liền dài bằng dòng chữ (Dùng lệnh Draw, không dùng Underline). Cách nhau dòng đơn.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 2</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Tên cơ quan ban hành</td>
+                            <td class="border border-slate-300 p-2 text-center">12 - 13</td>
+                            <td class="border border-slate-300 p-2">
+                                • Cơ quan chủ quản: In hoa, đứng, thường (cỡ 12-13).<br>
+                                • Cơ quan ban hành: In hoa, đứng, <b>đậm</b> (cỡ 12-13), canh giữa. Khi có 2 cơ quan: in đậm cơ quan thứ 2; khi có 1 cơ quan: in đậm luôn. Dưới có đường kẻ ngang bằng 1/3 đến 1/2 độ dài.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 3</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Số, ký hiệu văn bản</td>
+                            <td class="border border-slate-300 p-2 text-center">13</td>
+                            <td class="border border-slate-300 p-2">
+                                • Chữ "Số:" in thường, sau có dấu hai chấm (`:`). Cỡ 13, đứng, canh giữa.<br>
+                                • Gạch chéo (/) giữa số và năm/ký hiệu. Gạch nối (-) giữa các nhóm chữ tắt không cách chữ. <i>VD: Số: 01/ABC-HC, Số: 01/QĐ-ĐHCN</i>.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 4</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Địa danh, ngày tháng năm</td>
+                            <td class="border border-slate-300 p-2 text-center">13 - 14</td>
+                            <td class="border border-slate-300 p-2">
+                                • Chữ in thường, nghiêng, sau địa danh có dấu phẩy (,). Canh giữa. Nằm cùng 1 hàng với Số và ký hiệu.<br>
+                                • <b>Quy tắc số 0:</b> Ngày < 10 thêm số 0; tháng < 3 thêm số 0 (VD: <i>Hà Nội, ngày 05 tháng 02 năm 2026</i>).
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 5a</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Tên loại & Trích yếu (có tên loại)</td>
+                            <td class="border border-slate-300 p-2 text-center">13 - 14</td>
+                            <td class="border border-slate-300 p-2">
+                                • Áp dụng cho: Quyết định, Tờ trình, Thông báo...<br>
+                                • <b>Tên loại:</b> In hoa, đứng, đậm (13-14), canh giữa.<br>
+                                • <b>Trích yếu:</b> Dưới tên loại, in thường, đứng, đậm (13-14). Kẻ ngang 1/3 đến 1/2 độ dài.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 5b</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Trích yếu Công văn</td>
+                            <td class="border border-slate-300 p-2 text-center">12 - 13</td>
+                            <td class="border border-slate-300 p-2">
+                                • Sau chữ <b>V/v</b> bằng chữ in thường, đứng, cỡ 12-13. Đặt canh giữa dưới số và ký hiệu, cách dòng 6pt.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 6</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Nội dung văn bản</td>
+                            <td class="border border-slate-300 p-2 text-center">13 - 14</td>
+                            <td class="border border-slate-300 p-2">
+                                • In thường, đứng, cỡ 13-14, phông Times New Roman. Dàn đều cả hai lề (Ctrl + J).<br>
+                                • <b>Đầu dòng:</b> Lùi vào 1 đến 1.27 cm (1 phím Tab).<br>
+                                • <b>Khoảng cách đoạn:</b> Tối thiểu 6pt. Khoảng cách dòng: Tối thiểu dòng đơn, tối đa 1.5 dòng.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 7, 8</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Thẩm quyền ký & Con dấu</td>
+                            <td class="border border-slate-300 p-2 text-center">13 - 14</td>
+                            <td class="border border-slate-300 p-2">
+                                • Quyền hạn/chức vụ: In hoa, đứng, đậm (13-14), canh giữa.<br>
+                                • Ký thay: Dòng 1 `KT. GIÁM ĐỐC`, dòng 2 `PHÓ GIÁM ĐỐC`. Thừa lệnh: `TL. GIÁM ĐỐC`.<br>
+                                • Ô 8 để trống 3-4 dòng để ký & đóng dấu. Họ tên người ký: Cỡ 13-14, đứng, đậm.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 9a</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Nơi nhận phần đầu (Kính gửi)</td>
+                            <td class="border border-slate-300 p-2 text-center">13 - 14</td>
+                            <td class="border border-slate-300 p-2">
+                                • Áp dụng cho Tờ trình, Báo cáo, Công văn...<br>
+                                • 1 nơi nhận: Canh giữa, cỡ 13-14. Nhiều nơi nhận: Thụt lề gạch đầu dòng từng nơi.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 p-2 text-center font-bold text-blue-700">Ô 9b</td>
+                            <td class="border border-slate-300 p-2 font-semibold">Nơi nhận cuối văn bản</td>
+                            <td class="border border-slate-300 p-2 text-center">11 - 12</td>
+                            <td class="border border-slate-300 p-2">
+                                • Từ <b>Nơi nhận:</b> cỡ 12, in thường, nghiêng, đậm, có dấu hai chấm (`:`).<br>
+                                • Phần liệt kê bên dưới: Cỡ 11, in thường, đứng. Dòng cuối: `- Lưu: VT, ...`
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="border-t pt-3 flex items-center justify-between">
+                <a href="/api/exam/download-spec" download class="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold">
+                    <i class="fa-solid fa-file-arrow-down"></i> Tải tài liệu sổ tay quy chuẩn (.md)
+                </a>
+                <button onclick="closeSpecModal()" class="px-5 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition">
+                    Đã hiểu, đóng cửa sổ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. MODAL BÁO CÁO KẾT QUẢ CUỐI CÙNG -->
+    <div id="modal-result" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 text-2xl mb-2">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-900">Kết Quả Bài Thi</h3>
+                <p class="text-xs text-slate-500">Môn: Soạn thảo văn bản hành chính</p>
+            </div>
+
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Thí sinh:</span>
+                    <span class="font-bold text-slate-800" id="result-name">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Số báo danh (SBD):</span>
+                    <span class="font-mono font-bold text-amber-700" id="result-sbd">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Mã sinh viên:</span>
+                    <span class="font-mono font-bold text-slate-800" id="result-id">--</span>
+                </div>
+                <div class="border-t pt-2 flex justify-between">
+                    <span class="text-slate-600" id="result-quiz-label">1. Điểm Trắc nghiệm:</span>
+                    <span class="font-bold text-blue-600" id="result-quiz-score">--/3.0 điểm</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-600">2. Điểm thể thức Văn bản 1 (Ô 1 - Ô 9):</span>
+                    <span class="font-bold text-purple-600" id="result-w1-score">--/2.0 điểm</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-600">3. Điểm thể thức Văn bản 2 (Ô 1 - Ô 9):</span>
+                    <span class="font-bold text-indigo-600" id="result-w2-score">--/2.0 điểm</span>
+                </div>
+                <div class="flex justify-between items-center" id="result-anti-cheat-row">
+                    <span class="text-slate-600">Kiểm tra phôi & chống gian lận:</span>
+                    <span class="font-bold text-xs" id="result-anti-cheat">--</span>
+                </div>
+                <div class="border-t pt-2 flex justify-between text-base font-bold text-slate-900">
+                    <span>Tổng điểm tự động:</span>
+                    <span class="text-emerald-600 text-lg" id="result-total-auto">--/7.0 điểm</span>
+                </div>
+                <p id="result-content-note" class="text-[11px] text-slate-400 italic text-center mt-2">
+                    * 3.0 điểm nội dung còn lại sẽ do Giảng viên chấm trực tiếp theo rubric.
+                </p>
+            </div>
+
+            <!-- Hộp hỗ trợ sinh viên nếu lỡ bấm nộp nhầm -->
+            <div id="result-reopen-notice" class="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1.5">
+                <div class="font-bold flex items-center gap-1.5 text-amber-800">
+                    <i class="fa-solid fa-circle-question text-amber-600"></i> Lỡ tay bấm nộp nhầm khi chưa làm xong?
+                </div>
+                <p class="text-[11px] text-amber-700 leading-snug">
+                    Hãy báo ngay cho Giảng viên để được mở lại bài thi. Sau khi Giảng viên bấm duyệt mở lại, bạn bấm nút bên dưới để tiếp tục làm bài:
+                </p>
+                <button type="button" onclick="checkResumeFromModal()" id="btn-resume-exam" 
+                        class="w-full mt-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-xs">
+                    <i class="fa-solid fa-rotate-left"></i> Tôi Đã Được Giảng Viên Mở Lại - Tiếp Tục Làm Bài
+                </button>
+            </div>
+
+            <button onclick="location.reload()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-lg transition">
+                Đóng & Hoàn tất phiên thi
+            </button>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

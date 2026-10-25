@@ -1,0 +1,92 @@
+{
+  "sections": {
+    "quiz_max": 2.0,
+    "case_1_format_max": 2.0,
+    "case_1_content_max": 2.0,
+    "case_2_format_max": 2.0,
+    "case_2_content_max": 2.0,
+    "total": 10.0
+  },
+  "rubric_items": [
+    {
+      "id": "paper_size",
+      "cell": "Tổng thể",
+      "name": "Khổ giấy A4",
+      "description": "Kích thước 210 x 297 mm chuẩn A4",
+      "default_points": 0.5,
+      "points": 0.5
+    },
+    {
+      "id": "margins",
+      "cell": "Tổng thể",
+      "name": "Căn lề trang văn bản",
+      "description": "Trên/Dưới 20-25mm, Trái 30-35mm, Phải 15-20mm",
+      "default_points": 1.5,
+      "points": 5.0
+    },
+    {
+      "id": "font_family",
+      "cell": "Tổng thể",
+      "name": "Phông chữ chuẩn Times New Roman",
+      "description": "Bắt buộc sử dụng phông chữ Times New Roman theo NĐ 30",
+      "default_points": 1.0,
+      "points": 1.0
+    },
+    {
+      "id": "quoc_hieu",
+      "cell": "Ô 1",
+      "name": "Quốc hiệu & Tiêu ngữ",
+      "description": "Quốc hiệu in hoa đứng đậm, Tiêu ngữ có gạch nối",
+      "default_points": 1.5,
+      "points": 1.0
+    },
+    {
+      "id": "co_quan",
+      "cell": "Ô 2",
+      "name": "Tên cơ quan ban hành & Bố cục đầu trang",
+      "description": "Bảng không viền chia cột cân xứng với Quốc hiệu",
+      "default_points": 1.0,
+      "points": 1.0
+    },
+    {
+      "id": "so_ky_hieu",
+      "cell": "Ô 3",
+      "name": "Số và ký hiệu văn bản",
+      "description": "Cấu trúc 'Số: .../...-...' theo đúng quy định",
+      "default_points": 1.0,
+      "points": 1.5
+    },
+    {
+      "id": "dia_danh_ngay_thang",
+      "cell": "Ô 4",
+      "name": "Địa danh, ngày, tháng, năm",
+      "description": "Địa danh tỉnh/thành, ngày tháng năm đầy đủ",
+      "default_points": 1.0,
+      "points": 1.0
+    },
+    {
+      "id": "ten_loai_trich_yeu",
+      "cell": "Ô 5",
+      "name": "Tên loại & Trích yếu nội dung",
+      "description": "Tên loại văn bản hoặc V/v công văn, trích yếu",
+      "default_points": 1.0,
+      "points": 1.0
+    },
+    {
+      "id": "tham_quyen_ky",
+      "cell": "Ô 7, 8",
+      "name": "Thẩm quyền ký & Con dấu",
+      "description": "Chức danh thẩm quyền ký (Hiệu trưởng, Giám đốc, TM., KT., TL.)",
+      "default_points": 1.0,
+      "points": 1.0
+    },
+    {
+      "id": "noi_nhan",
+      "cell": "Ô 9",
+      "name": "Nơi nhận (Ô 9a / Ô 9b)",
+      "description": "Thành phần nơi nhận và lưu văn thư",
+      "default_points": 0.5,
+      "points": 1.0
+    }
+  ]
+}
