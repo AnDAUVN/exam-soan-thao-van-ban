@@ -31,8 +31,8 @@
                     <i class="fa-brands fa-google-drive text-sky-400 text-sm"></i> ☁️ Drive: cttrung@ntt.edu.vn
                     <span id="gdrive-nav-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
                 </button>
-                <button onclick="openQuestionsBankModal()" class="px-3.5 py-2 text-xs font-semibold text-amber-200 bg-amber-900/80 hover:bg-amber-800 rounded-lg transition flex items-center gap-1.5 border border-amber-700 shadow-sm">
-                    <i class="fa-solid fa-book-bookmark"></i> 📚 Ngân Hàng Đề & Cấu Hình
+                <button onclick="openQuestionsBankModal()" class="px-3.5 py-2 text-xs font-semibold text-amber-200 bg-amber-900/80 hover:bg-amber-800 rounded-lg transition flex items-center gap-1.5 border border-amber-700 shadow-sm" title="Cấu hình thời gian làm bài thi và ngân hàng đề">
+                    <i class="fa-solid fa-clock text-amber-400"></i> ⏱️ Ca Thi: <span id="nav-exam-duration-pill" class="font-bold text-amber-300">60 phút</span> | 📚 Đề
                 </button>
                 <button onclick="openRosterModal()" class="px-3.5 py-2 text-xs font-semibold text-cyan-200 bg-cyan-900/80 hover:bg-cyan-800 rounded-lg transition flex items-center gap-1.5 border border-cyan-700 shadow-sm" title="Quản lý danh sách sinh viên được phép vào phòng thi (Chống người ngoài vào thi)">
                     <i class="fa-solid fa-user-shield text-cyan-400 text-sm"></i> 👥 Danh Sách Thí Sinh Lớp
@@ -209,7 +209,7 @@
             <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <button id="qb-tab-btn-config" onclick="switchQBTab('config')" 
                         class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-600 text-white shadow-sm">
-                    <i class="fa-solid fa-sliders"></i> 1. Cấu Hình Đề (5 hoặc 10 câu)
+                    <i class="fa-solid fa-sliders"></i> 1. Cấu Hình Ca Thi & Thời Gian
                 </button>
                 <button id="qb-tab-btn-mcq" onclick="switchQBTab('mcq')" 
                         class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200">
@@ -224,70 +224,139 @@
             <!-- Tab Content Container -->
             <div class="flex-1 overflow-y-auto pr-1 space-y-4 text-xs">
                 
-                <!-- TAB 1: CẤU HÌNH ĐỀ THI -->
-                <div id="qb-tab-content-config" class="space-y-4">
-                    <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-4">
+                <!-- TAB 1: CẤU HÌNH ĐỀ THI & THỜI GIAN LÀM BÀI -->
+                <div id="qb-tab-content-config" class="space-y-5">
+                    
+                    <!-- PHẦN 1: THỜI GIAN LÀM BÀI THI DO GIẢNG VIÊN QUY ĐỊNH -->
+                    <div class="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-blue-950 text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-stopwatch text-blue-600 text-base"></i>
+                                Thời Gian Làm Bài Thi (Do Giảng Viên quy định cho toàn bộ thí sinh):
+                            </span>
+                            <span id="qb-current-duration-pill" class="px-3 py-1 bg-blue-600 text-white font-extrabold rounded-full text-[11px] shadow-sm">
+                                Đang áp dụng: 60 phút
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-blue-900 leading-relaxed">
+                            Cổng sinh viên <b>không được phép chọn thời gian</b>. Toàn bộ thí sinh khi bắt đầu bài thi sẽ được máy chủ tự động áp dụng chính xác khung thời gian do Thầy/Cô thiết lập dưới đây:
+                        </p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                            <!-- Khung 1: 60 phút -->
+                            <div id="qb-dur-card-60" onclick="selectDurationOption(60)" 
+                                 class="cursor-pointer border-2 border-slate-200 rounded-xl p-4 hover:border-blue-500 transition relative bg-white shadow-2xs">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-[10px] uppercase">Khung Chuẩn</span>
+                                        <h4 class="font-extrabold text-slate-800 text-base mt-1.5 flex items-center gap-1.5">
+                                            <i class="fa-regular fa-clock text-blue-600"></i> 60 Phút
+                                        </h4>
+                                        <div class="text-[11px] text-slate-500 mt-1">Khung thi chuẩn môn Soạn thảo văn bản</div>
+                                    </div>
+                                    <input type="radio" name="qb-config-dur" id="qb-dur-radio-60" value="60" class="w-4 h-4 text-blue-600 mt-1">
+                                </div>
+                            </div>
+
+                            <!-- Khung 2: 90 phút -->
+                            <div id="qb-dur-card-90" onclick="selectDurationOption(90)" 
+                                 class="cursor-pointer border-2 border-slate-200 rounded-xl p-4 hover:border-blue-500 transition relative bg-white shadow-2xs">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 font-bold rounded text-[10px] uppercase">Mở Rộng</span>
+                                        <h4 class="font-extrabold text-slate-800 text-base mt-1.5 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-hourglass-half text-indigo-600"></i> 90 Phút
+                                        </h4>
+                                        <div class="text-[11px] text-slate-500 mt-1">Thời lượng mở rộng cho ca thi dài</div>
+                                    </div>
+                                    <input type="radio" name="qb-config-dur" id="qb-dur-radio-90" value="90" class="w-4 h-4 text-blue-600 mt-1">
+                                </div>
+                            </div>
+
+                            <!-- Khung 3: Tùy chọn gõ số phút -->
+                            <div id="qb-dur-card-custom" onclick="selectDurationOption('custom')" 
+                                 class="cursor-pointer border-2 border-slate-200 rounded-xl p-4 hover:border-blue-500 transition relative bg-white shadow-2xs">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1 mr-2">
+                                        <span class="px-2 py-0.5 bg-amber-100 text-amber-800 font-bold rounded text-[10px] uppercase">Tùy Chọn Gõ Số</span>
+                                        <div class="flex items-center gap-1.5 mt-1.5">
+                                            <i class="fa-solid fa-pen-to-square text-amber-600"></i>
+                                            <input type="number" id="qb-input-custom-duration" min="1" max="360" placeholder="Gõ số..." 
+                                                   oninput="onCustomDurationInput(this.value)" onclick="event.stopPropagation(); selectDurationOption('custom')"
+                                                   class="w-20 px-2.5 py-1 text-sm font-bold border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                            <span class="font-bold text-slate-800 text-xs">phút</span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 mt-1">Thầy/Cô gõ số phút bất kỳ (45, 75, 120...)</div>
+                                    </div>
+                                    <input type="radio" name="qb-config-dur" id="qb-dur-radio-custom" value="custom" class="w-4 h-4 text-amber-600 mt-1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PHẦN 2: CẤU HÌNH SỐ LƯỢNG CÂU HỎI TRẮC NGHIỆM -->
+                    <div class="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="font-bold text-amber-900 text-xs flex items-center gap-2">
-                                <i class="fa-solid fa-circle-info text-amber-600"></i>
+                                <i class="fa-solid fa-circle-question text-amber-600 text-base"></i>
                                 Cấu hình số lượng câu hỏi trắc nghiệm cho mỗi đề thi:
                             </span>
                             <span id="qb-current-config-pill" class="px-2.5 py-1 bg-amber-200 text-amber-900 font-extrabold rounded-full text-[11px]">
                                 Đang chọn: 10 câu
                             </span>
                         </div>
-                        <p class="text-[11px] text-amber-800 mt-1">
+                        <p class="text-[11px] text-amber-800">
                             Hệ thống sẽ lấy ngẫu nhiên số lượng câu trắc nghiệm này từ ngân hàng câu hỏi để tạo đề riêng biệt cho từng thí sinh. Điểm phần trắc nghiệm luôn tự động quy đổi chuẩn trên thang <b>3.0 điểm</b>.
                         </p>
-                    </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Option 5 câu -->
-                        <div id="qb-card-5" onclick="selectConfigMCQ(5)" 
-                             class="cursor-pointer border-2 border-slate-200 rounded-2xl p-5 hover:border-amber-500 transition relative bg-white shadow-2xs">
-                            <div class="flex items-start justify-between">
-                                <div>
-                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded text-[10px] uppercase">Rút gọn / Thi nhanh</span>
-                                    <h4 class="font-extrabold text-slate-800 text-base mt-2 flex items-center gap-2">
-                                        <i class="fa-solid fa-bolt text-amber-500"></i> 5 Câu Hỏi Trắc Nghiệm
-                                    </h4>
-                                    <div class="text-xs font-semibold text-slate-500 mt-1">
-                                        Điểm mỗi câu: <span class="font-bold text-emerald-600 text-sm">0.60 đ</span> / câu
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                            <!-- Option 5 câu -->
+                            <div id="qb-card-5" onclick="selectConfigMCQ(5)" 
+                                 class="cursor-pointer border-2 border-slate-200 rounded-2xl p-4 hover:border-amber-500 transition relative bg-white shadow-2xs">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <span class="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded text-[10px] uppercase">Rút gọn / Thi nhanh</span>
+                                        <h4 class="font-extrabold text-slate-800 text-base mt-1.5 flex items-center gap-2">
+                                            <i class="fa-solid fa-bolt text-amber-500"></i> 5 Câu Hỏi Trắc Nghiệm
+                                        </h4>
+                                        <div class="text-xs font-semibold text-slate-500 mt-1">
+                                            Điểm mỗi câu: <span class="font-bold text-emerald-600 text-sm">0.60 đ</span> / câu
+                                        </div>
                                     </div>
+                                    <input type="radio" name="qb-config-mcq" id="qb-radio-5" value="5" class="w-5 h-5 text-amber-600 mt-1">
                                 </div>
-                                <input type="radio" name="qb-config-mcq" id="qb-radio-5" value="5" class="w-5 h-5 text-amber-600 mt-1">
+                                <div class="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
+                                    <div>• Tổng điểm trắc nghiệm: <b>5 × 0.6 = 3.0 điểm</b>.</div>
+                                    <div>• Tiết kiệm thời gian làm trắc nghiệm, thí sinh tập trung nhiều hơn vào 2 bài soạn thảo văn bản Word.</div>
+                                </div>
                             </div>
-                            <div class="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
-                                <div>• Tổng điểm trắc nghiệm: <b>5 × 0.6 = 3.0 điểm</b>.</div>
-                                <div>• Tiết kiệm thời gian làm trắc nghiệm, thí sinh tập trung nhiều hơn vào 2 bài soạn thảo văn bản Word.</div>
-                            </div>
-                        </div>
 
-                        <!-- Option 10 câu -->
-                        <div id="qb-card-10" onclick="selectConfigMCQ(10)" 
-                             class="cursor-pointer border-2 border-slate-200 rounded-2xl p-5 hover:border-amber-500 transition relative bg-white shadow-2xs">
-                            <div class="flex items-start justify-between">
-                                <div>
-                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold rounded text-[10px] uppercase">Toàn diện / Tiêu chuẩn</span>
-                                    <h4 class="font-extrabold text-slate-800 text-base mt-2 flex items-center gap-2">
-                                        <i class="fa-solid fa-graduation-cap text-purple-600"></i> 10 Câu Hỏi Trắc Nghiệm
-                                    </h4>
-                                    <div class="text-xs font-semibold text-slate-500 mt-1">
-                                        Điểm mỗi câu: <span class="font-bold text-emerald-600 text-sm">0.30 đ</span> / câu
+                            <!-- Option 10 câu -->
+                            <div id="qb-card-10" onclick="selectConfigMCQ(10)" 
+                                 class="cursor-pointer border-2 border-slate-200 rounded-2xl p-4 hover:border-amber-500 transition relative bg-white shadow-2xs">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <span class="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold rounded text-[10px] uppercase">Toàn diện / Tiêu chuẩn</span>
+                                        <h4 class="font-extrabold text-slate-800 text-base mt-1.5 flex items-center gap-2">
+                                            <i class="fa-solid fa-graduation-cap text-purple-600"></i> 10 Câu Hỏi Trắc Nghiệm
+                                        </h4>
+                                        <div class="text-xs font-semibold text-slate-500 mt-1">
+                                            Điểm mỗi câu: <span class="font-bold text-emerald-600 text-sm">0.30 đ</span> / câu
+                                        </div>
                                     </div>
+                                    <input type="radio" name="qb-config-mcq" id="qb-radio-10" value="10" class="w-5 h-5 text-amber-600 mt-1">
                                 </div>
-                                <input type="radio" name="qb-config-mcq" id="qb-radio-10" value="10" class="w-5 h-5 text-amber-600 mt-1">
-                            </div>
-                            <div class="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
-                                <div>• Tổng điểm trắc nghiệm: <b>10 × 0.3 = 3.0 điểm</b>.</div>
-                                <div>• Khảo sát bao quát toàn bộ thể thức từ ô số 1 đến ô số 9 theo Nghị định 30/2020/NĐ-CP.</div>
+                                <div class="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
+                                    <div>• Tổng điểm trắc nghiệm: <b>10 × 0.3 = 3.0 điểm</b>.</div>
+                                    <div>• Khảo sát bao quát toàn bộ thể thức từ ô số 1 đến ô số 9 theo Nghị định 30/2020/NĐ-CP.</div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="pt-2 flex justify-end">
                         <button onclick="saveExamConfig()" class="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md transition flex items-center gap-2 text-xs">
-                            <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình Số Câu
+                            <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình Ca Thi & Thời Gian
                         </button>
                     </div>
                 </div>
@@ -3152,6 +3221,7 @@
                 if (data.status === 'success' && data.data) {
                     questionsBankData = data.data;
                     currentSelectedMCQCount = questionsBankData.config?.mcq_count || 10;
+                    currentSelectedDuration = questionsBankData.config?.duration_minutes || 60;
                     renderConfigTab();
                     renderMCQTab();
                     renderCasesTab();
@@ -3176,6 +3246,61 @@
             });
         }
 
+        let currentSelectedDuration = 60;
+
+        function selectDurationOption(dur) {
+            if (dur === 60 || dur === 90) {
+                currentSelectedDuration = dur;
+            } else {
+                const val = parseInt(document.getElementById('qb-input-custom-duration')?.value);
+                currentSelectedDuration = (val && val > 0) ? val : 45;
+                const inp = document.getElementById('qb-input-custom-duration');
+                if (inp) inp.value = currentSelectedDuration;
+            }
+            updateDurationSelectionUI();
+        }
+
+        function onCustomDurationInput(val) {
+            const parsed = parseInt(val);
+            if (parsed && parsed > 0) {
+                currentSelectedDuration = parsed;
+                updateDurationSelectionUI();
+            }
+        }
+
+        function updateDurationSelectionUI() {
+            const card60 = document.getElementById('qb-dur-card-60');
+            const card90 = document.getElementById('qb-dur-card-90');
+            const cardCustom = document.getElementById('qb-dur-card-custom');
+            const r60 = document.getElementById('qb-dur-radio-60');
+            const r90 = document.getElementById('qb-dur-radio-90');
+            const rCustom = document.getElementById('qb-dur-radio-custom');
+            const customInput = document.getElementById('qb-input-custom-duration');
+
+            const normalClass = 'cursor-pointer border-2 border-slate-200 bg-white rounded-xl p-4 hover:border-slate-300 transition relative shadow-2xs';
+            if (card60) card60.className = normalClass;
+            if (card90) card90.className = normalClass;
+            if (cardCustom) cardCustom.className = normalClass;
+
+            if (currentSelectedDuration === 60) {
+                if (card60) card60.className = 'cursor-pointer border-2 border-blue-500 bg-blue-50/50 rounded-xl p-4 transition relative shadow-sm ring-2 ring-blue-400';
+                if (r60) r60.checked = true;
+            } else if (currentSelectedDuration === 90) {
+                if (card90) card90.className = 'cursor-pointer border-2 border-blue-500 bg-blue-50/50 rounded-xl p-4 transition relative shadow-sm ring-2 ring-blue-400';
+                if (r90) r90.checked = true;
+            } else {
+                if (cardCustom) cardCustom.className = 'cursor-pointer border-2 border-amber-500 bg-amber-50/50 rounded-xl p-4 transition relative shadow-sm ring-2 ring-amber-400';
+                if (rCustom) rCustom.checked = true;
+                if (customInput && !customInput.value) customInput.value = currentSelectedDuration;
+            }
+
+            const pill = document.getElementById('qb-current-duration-pill');
+            if (pill) pill.innerText = `Đang áp dụng: ${currentSelectedDuration} phút`;
+
+            const navPill = document.getElementById('nav-exam-duration-pill');
+            if (navPill) navPill.innerText = `${currentSelectedDuration} phút`;
+        }
+
         function selectConfigMCQ(count) {
             currentSelectedMCQCount = count;
             const r5 = document.getElementById('qb-radio-5');
@@ -3191,12 +3316,12 @@
             const r5 = document.getElementById('qb-radio-5');
             const r10 = document.getElementById('qb-radio-10');
             if (currentSelectedMCQCount === 5) {
-                if (card5) card5.className = 'cursor-pointer border-2 border-amber-500 bg-amber-50/40 rounded-2xl p-5 transition relative shadow-sm ring-2 ring-amber-400';
-                if (card10) card10.className = 'cursor-pointer border-2 border-slate-200 bg-white rounded-2xl p-5 hover:border-slate-300 transition relative shadow-2xs';
+                if (card5) card5.className = 'cursor-pointer border-2 border-amber-500 bg-amber-50/40 rounded-2xl p-4 transition relative shadow-sm ring-2 ring-amber-400';
+                if (card10) card10.className = 'cursor-pointer border-2 border-slate-200 bg-white rounded-2xl p-4 hover:border-slate-300 transition relative shadow-2xs';
                 if (r5) r5.checked = true;
             } else {
-                if (card10) card10.className = 'cursor-pointer border-2 border-amber-500 bg-amber-50/40 rounded-2xl p-5 transition relative shadow-sm ring-2 ring-amber-400';
-                if (card5) card5.className = 'cursor-pointer border-2 border-slate-200 bg-white rounded-2xl p-5 hover:border-slate-300 transition relative shadow-2xs';
+                if (card10) card10.className = 'cursor-pointer border-2 border-amber-500 bg-amber-50/40 rounded-2xl p-4 transition relative shadow-sm ring-2 ring-amber-400';
+                if (card5) card5.className = 'cursor-pointer border-2 border-slate-200 bg-white rounded-2xl p-4 hover:border-slate-300 transition relative shadow-2xs';
                 if (r10) r10.checked = true;
             }
             const pill = document.getElementById('qb-current-config-pill');
@@ -3204,6 +3329,7 @@
         }
 
         function renderConfigTab() {
+            updateDurationSelectionUI();
             updateConfigSelectionUI();
         }
 
@@ -3212,11 +3338,14 @@
                 const res = await fetch('/api/teacher/exam-config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mcq_count: currentSelectedMCQCount })
+                    body: JSON.stringify({ 
+                        mcq_count: currentSelectedMCQCount,
+                        duration_minutes: currentSelectedDuration
+                    })
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    alert(`✅ CẤU HÌNH THÀNH CÔNG!\nĐề thi hiện tại sẽ có ${currentSelectedMCQCount} câu hỏi trắc nghiệm (${currentSelectedMCQCount === 5 ? '0.6đ/câu' : '0.3đ/câu'}).`);
+                    alert(`✅ ĐÃ LƯU CẤU HÌNH CA THI THÀNH CÔNG!\n\n⏱️ Thời gian làm bài: ${currentSelectedDuration} phút (Cố định cho toàn bộ thí sinh)\n📝 Số câu hỏi trắc nghiệm: ${currentSelectedMCQCount} câu (${currentSelectedMCQCount === 5 ? '0.6đ/câu' : '0.3đ/câu'}).`);
                     await loadQuestionsBank();
                 } else {
                     alert('❌ ' + (data.error || 'Lỗi lưu cấu hình'));
@@ -4074,6 +4203,7 @@ Căn cứ: Điều 8 Nghị định 30/2020/NĐ-CP`;
         }
 
         loadStudents();
+        loadQuestionsBank();
     </script>
 </body>
 </html>

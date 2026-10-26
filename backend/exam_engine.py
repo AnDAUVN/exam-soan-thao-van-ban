@@ -78,7 +78,9 @@ def load_questions_bank_data() -> Dict[str, Any]:
                 data = json.load(f)
                 if not isinstance(data, dict):
                     data = {}
-                data.setdefault("config", {"mcq_count": 10})
+                data.setdefault("config", {"mcq_count": 10, "duration_minutes": 60})
+                if "duration_minutes" not in data["config"]:
+                    data["config"]["duration_minutes"] = 60
                 data.setdefault("multiple_choice", [])
                 data.setdefault("practice_cases_a", [])
                 data.setdefault("practice_cases_b", [])
@@ -86,7 +88,7 @@ def load_questions_bank_data() -> Dict[str, Any]:
         except Exception as e:
             print("Lỗi đọc ngân hàng câu hỏi:", e)
     return {
-        "config": {"mcq_count": 10},
+        "config": {"mcq_count": 10, "duration_minutes": 60},
         "multiple_choice": [],
         "practice_cases_a": [],
         "practice_cases_b": []
@@ -385,21 +387,40 @@ class ExamEngine:
         return load_questions_bank_data()
 
     @staticmethod
-    def update_exam_config(mcq_count: int) -> Dict[str, Any]:
-        """Cấu hình số câu hỏi trắc nghiệm trong đề thi (5 hoặc 10 câu)"""
-        if mcq_count not in [5, 10]:
-            return {"error": "Số lượng câu hỏi trắc nghiệm chỉ được chọn 5 hoặc 10 câu!"}
-        
+    def update_exam_config(mcq_count: Optional[int] = None, duration_minutes: Optional[int] = None) -> Dict[str, Any]:
+        """Cấu hình thời gian làm bài thi và số câu hỏi trắc nghiệm do Giảng viên quy định"""
         data = load_questions_bank_data()
-        data.setdefault("config", {})["mcq_count"] = mcq_count
+        cfg = data.setdefault("config", {"mcq_count": 10, "duration_minutes": 60})
+
+        if mcq_count is not None:
+            try:
+                cnt = int(mcq_count)
+                if cnt not in [5, 10]:
+                    return {"error": "Số lượng câu hỏi trắc nghiệm chỉ được chọn 5 hoặc 10 câu!"}
+                cfg["mcq_count"] = cnt
+            except (ValueError, TypeError):
+                return {"error": "Số lượng câu hỏi trắc nghiệm không hợp lệ!"}
+
+        if duration_minutes is not None:
+            try:
+                dur = int(duration_minutes)
+                if dur < 1:
+                    return {"error": "Thời gian làm bài phải từ 1 phút trở lên!"}
+                cfg["duration_minutes"] = dur
+            except (ValueError, TypeError):
+                return {"error": "Thời gian làm bài không hợp lệ!"}
+
         save_questions_bank_data(data)
+
+        cur_mcq = int(cfg.get("mcq_count", 10))
+        cur_dur = int(cfg.get("duration_minutes", 60))
         sec = GradingService.get_sections()
         q_max = float(sec.get("quiz_max", 3.0))
-        pts_per_q = round(q_max / mcq_count, 2)
+        pts_per_q = round(q_max / cur_mcq, 2)
         return {
             "status": "success", 
-            "message": f"Đã cấu hình thành công: Đề thi sẽ gồm {mcq_count} câu hỏi trắc nghiệm (mỗi câu {pts_per_q}đ / tổng {q_max}đ).",
-            "config": data["config"]
+            "message": f"Đã lưu cấu hình ca thi: Thời gian làm bài {cur_dur} phút, Đề thi gồm {cur_mcq} câu trắc nghiệm ({pts_per_q}đ/câu).",
+            "config": cfg
         }
 
     @staticmethod
@@ -839,6 +860,10 @@ class ExamEngine:
                 }
 
         qbank_data = load_questions_bank_data()
+        teacher_duration = int(qbank_data.get("config", {}).get("duration_minutes", 60))
+        if teacher_duration > 0:
+            duration_minutes = teacher_duration
+
         mcq_count = int(qbank_data.get("config", {}).get("mcq_count", 10))
         if mcq_count not in [5, 10]:
             mcq_count = 10

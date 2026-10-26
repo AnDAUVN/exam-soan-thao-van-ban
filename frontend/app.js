@@ -188,7 +188,7 @@ document.getElementById('start-exam-form').addEventListener('submit', async (e) 
     const studentName = document.getElementById('input-student-name').value.trim();
     const cohort = document.getElementById('input-cohort').value;
     const className = document.getElementById('input-class').value;
-    const duration = parseInt(document.getElementById('input-duration').value);
+    const duration = 60; // Thời gian làm bài chính thức do Giảng viên quy định trên máy chủ
 
     // Chặn trước ở client nếu lớp bật bảo mật danh sách mà MSSV không hợp lệ
     if (lastLookupResult && lastLookupResult.enforced && !lastLookupResult.found) {

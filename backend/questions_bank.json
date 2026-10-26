@@ -1,6 +1,7 @@
 {
   "config": {
-    "mcq_count": 10
+    "mcq_count": 10,
+    "duration_minutes": 60
   },
   "multiple_choice": [
     {

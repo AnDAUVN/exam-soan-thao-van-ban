@@ -699,14 +699,15 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             print(f"👉 [MỞ KHÓA THIẾT BỊ] MSSV='{student_id}' -> {res.get('status', res.get('error'))}")
             self.send_json(res)
 
-        # 6. CẤU HÌNH SỐ CÂU TRẮC NGHIỆM ĐỀ THI (5 hoặc 10 câu)
+        # 6. CẤU HÌNH THỜI GIAN LÀM BÀI & SỐ CÂU TRẮC NGHIỆM ĐỀ THI
         elif path == "/api/teacher/exam-config":
             length = int(self.headers.get('Content-Length', 0))
             raw_body = self.rfile.read(length).decode('utf-8') if length > 0 else "{}"
             body = json.loads(raw_body)
-            mcq_count = int(body.get("mcq_count", 10))
-            res = ExamEngine.update_exam_config(mcq_count)
-            print(f"👉 [CẤU HÌNH ĐỀ] Số câu trắc nghiệm: {mcq_count} -> {res.get('status', res.get('error'))}")
+            mcq_count = body.get("mcq_count")
+            duration_minutes = body.get("duration_minutes")
+            res = ExamEngine.update_exam_config(mcq_count=mcq_count, duration_minutes=duration_minutes)
+            print(f"👉 [CẤU HÌNH CA THI] Số câu MCQ: {mcq_count}, Thời gian: {duration_minutes} phút -> {res.get('status', res.get('error'))}")
             self.send_json(res)
 
         # 7. THÊM CÂU HỎI TRẮC NGHIỆM VÀO NGÂN HÀNG (THỦ CÔNG)

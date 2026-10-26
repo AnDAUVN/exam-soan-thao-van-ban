@@ -120,7 +120,8 @@ class ParseRosterTextRequest(BaseModel):
     raw_text: Optional[str] = None
 
 class ExamConfigRequest(BaseModel):
-    mcq_count: int = 10
+    mcq_count: Optional[int] = None
+    duration_minutes: Optional[int] = None
 
 class AddMCQRequest(BaseModel):
     question: str
@@ -558,7 +559,7 @@ def get_questions_bank():
 
 @app.post("/api/teacher/exam-config")
 def update_exam_config(req: ExamConfigRequest):
-    return ExamEngine.update_exam_config(req.mcq_count)
+    return ExamEngine.update_exam_config(mcq_count=req.mcq_count, duration_minutes=req.duration_minutes)
 
 @app.post("/api/teacher/questions/add-mcq")
 def add_mcq(req: AddMCQRequest):
