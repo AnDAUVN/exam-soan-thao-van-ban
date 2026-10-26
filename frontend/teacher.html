@@ -1137,6 +1137,10 @@
                             class="px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white border border-amber-300 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs">
                         <i class="fa-solid fa-rotate-left"></i> Cho Làm Lại
                     </button>
+                    <button type="button" onclick="modalPromptUnlockDevice()" title="Mở khóa ràng buộc thiết bị cho thí sinh này chuyển sang máy tính khác"
+                            class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-300 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs">
+                        <i class="fa-solid fa-unlock-keyhole"></i> Đổi Máy
+                    </button>
                     <button type="button" onclick="modalPromptExtendTime()" title="Gia hạn thêm thời gian làm bài"
                             class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs">
                         <i class="fa-solid fa-clock-rotate-left"></i> + Gia Hạn Giờ
@@ -1606,7 +1610,10 @@
                     <td class="p-3.5 text-center font-bold text-slate-500">${idx + 1}</td>
                     <td class="p-3.5 text-center font-mono font-bold text-amber-700 bg-amber-50/40">${s.sbd || s.student_id}</td>
                     <td class="p-3.5 font-mono font-bold text-blue-700">${s.student_id}</td>
-                    <td class="p-3.5 font-bold text-slate-900">${s.student_name}</td>
+                    <td class="p-3.5 font-bold text-slate-900">
+                        <div>${s.student_name}</div>
+                        ${s.device_info ? `<div class="text-[10px] text-slate-500 font-normal flex items-center gap-1 mt-0.5" title="Thiết bị: ${s.device_info} (Lúc ${s.device_first_login || 'bắt đầu'})"><i class="fa-solid fa-laptop text-[9px] text-blue-600"></i> ${s.device_info}</div>` : ''}
+                    </td>
                     <td class="p-3.5 text-slate-600">
                         <span class="font-bold text-slate-800">${s.cohort}</span><br>
                         <span class="text-[11px] text-slate-500">${s.class_name}</span>
@@ -1627,20 +1634,28 @@
                         ${(s.anti_cheat_violations && s.anti_cheat_violations.length > 0) ? `
                             <div class="flex flex-col items-center gap-1">
                                 ${s.anti_cheat_violations.map(v => {
+                                    const text = (typeof v === 'string') ? v : (v.detail || v.type || JSON.stringify(v));
+                                    const lower = text.toLowerCase();
                                     let icon = 'fa-triangle-exclamation';
                                     let bg = 'bg-rose-100 text-rose-800 border-rose-300';
-                                    if (v.toLowerCase().includes('copy')) {
+                                    if (lower.includes('thiết bị') || lower.includes('device')) {
+                                        icon = 'fa-mobile-screen-button';
+                                        bg = 'bg-rose-100 text-rose-800 border-rose-300 font-extrabold';
+                                    } else if (lower.includes('mở khóa')) {
+                                        icon = 'fa-unlock-keyhole';
+                                        bg = 'bg-indigo-100 text-indigo-800 border-indigo-300';
+                                    } else if (lower.includes('copy')) {
                                         icon = 'fa-copy';
                                         bg = 'bg-rose-100 text-rose-800 border-rose-300';
-                                    } else if (v.toLowerCase().includes('phôi') || v.toLowerCase().includes('file')) {
+                                    } else if (lower.includes('phôi') || lower.includes('file')) {
                                         icon = 'fa-file-circle-xmark';
                                         bg = 'bg-rose-100 text-rose-800 border-rose-300';
-                                    } else if (v.toLowerCase().includes('tác giả')) {
+                                    } else if (lower.includes('tác giả')) {
                                         icon = 'fa-user-pen';
                                         bg = 'bg-amber-100 text-amber-800 border-amber-300';
                                     }
-                                    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${bg} border shadow-2xs whitespace-nowrap" title="${v}">
-                                        <i class="fa-solid ${icon}"></i> ${v}
+                                    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${bg} border shadow-2xs whitespace-nowrap" title="${text}">
+                                        <i class="fa-solid ${icon}"></i> ${text}
                                     </span>`;
                                 }).join('')}
                             </div>
@@ -1685,6 +1700,11 @@
                                         class="px-2 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300 rounded-lg font-bold text-[11px] shadow-2xs transition flex items-center gap-1">
                                     <i class="fa-solid fa-clock-rotate-left"></i> +Giờ
                                 </button>
+                                <button onclick="promptUnlockDevice('${s.student_id}', '${encodeURIComponent(s.student_name)}')"
+                                        title="Mở khóa ràng buộc thiết bị (cho phép thí sinh đổi sang máy tính khác khi máy bị hỏng)"
+                                        class="px-2 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-200 rounded-lg font-bold text-[11px] shadow-2xs transition flex items-center gap-1">
+                                    <i class="fa-solid fa-unlock-keyhole"></i> Đổi máy
+                                </button>
                                 <button onclick="confirmTerminateExam('${s.student_id}', '${encodeURIComponent(s.student_name)}')"
                                         title="Buộc dừng / Đình chỉ ca thi của thí sinh này ngay lập tức"
                                         class="px-2 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-300 rounded-lg font-bold text-[11px] shadow-2xs transition flex items-center gap-1">
@@ -1701,6 +1721,11 @@
                                         title="Cho phép thí sinh làm lại bài thi (xử lý khi lỡ bấm nộp nhầm)"
                                         class="px-2.5 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white border border-amber-300 rounded-lg font-bold text-[11px] shadow-2xs transition flex items-center gap-1">
                                     <i class="fa-solid fa-rotate-left"></i> Cho làm lại
+                                </button>
+                                <button onclick="promptUnlockDevice('${s.student_id}', '${encodeURIComponent(s.student_name)}')"
+                                        title="Mở khóa ràng buộc thiết bị cho thí sinh"
+                                        class="px-2 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-200 rounded-lg font-semibold text-[11px] transition flex items-center gap-1">
+                                    <i class="fa-solid fa-unlock-keyhole"></i> Đổi máy
                                 </button>
                                 <button onclick="promptExtendTime('${s.student_id}', '${encodeURIComponent(s.student_name)}')"
                                         title="Gia hạn thêm thời gian nộp bài"
@@ -2270,6 +2295,38 @@
             } catch (err) {
                 alert('❌ Lỗi kết nối máy chủ: ' + err.message);
             }
+        }
+
+        async function promptUnlockDevice(studentId, encodedName) {
+            const studentName = decodeURIComponent(encodedName || studentId);
+            if (!confirm(`🔓 MỞ KHÓA THIẾT BỊ CHO THÍ SINH:\n\nThí sinh: ${studentName} (MSSV: ${studentId})\n\nBạn có chắc chắn muốn MỞ KHÓA THIẾT BỊ cho thí sinh này không?\n\n(Chỉ sử dụng khi máy tính của thí sinh bị sự cố hỏng hóc trong phòng thi và cần chuyển sang máy mới. Sau khi mở khóa, thí sinh có thể đăng nhập trên máy mới).`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/teacher/unlock-device', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_id: studentId })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(`✅ ${data.message}`);
+                    await loadStudents();
+                    if (selectedStudent && selectedStudent.student_id === studentId) {
+                        openGradeModal(studentId);
+                    }
+                } else {
+                    alert('❌ ' + (data.error || 'Lỗi mở khóa thiết bị'));
+                }
+            } catch (err) {
+                alert('❌ Lỗi kết nối máy chủ: ' + err.message);
+            }
+        }
+
+        function modalPromptUnlockDevice() {
+            if (!selectedStudent) return;
+            promptUnlockDevice(selectedStudent.student_id, encodeURIComponent(selectedStudent.student_name));
         }
 
         function modalPromptExtendTime() {

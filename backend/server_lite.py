@@ -117,7 +117,8 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
 
         # 3b. ĐỒNG BỘ PHIÊN THI SINH VIÊN (GIA HẠN / ĐÌNH CHỈ)
         elif path.startswith("/api/exam/session/"):
-            student_id = path.split("/")[-1]
+            parts = parsed.path.split("/")
+            student_id = parts[-1]
             session = ACTIVE_SESSIONS.get(student_id)
             if not session:
                 self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
@@ -125,6 +126,13 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             remaining = max(0, int(session.get("end_time", time.time()) - time.time()))
             if remaining <= 0 and not session.get("is_submitted", False):
                 session["is_submitted"] = True
+
+            req_device_id = query_params.get("device_id", [None])[0]
+            is_device_mismatch = False
+            bound_dev = session.get("device_id")
+            if bound_dev and req_device_id and bound_dev != req_device_id.strip():
+                is_device_mismatch = True
+
             self.send_json({
                 "student_id": session["student_id"],
                 "student_name": session["student_name"],
@@ -135,6 +143,8 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                 "is_submitted": session.get("is_submitted", False),
                 "is_terminated": session.get("is_terminated", False),
                 "termination_reason": session.get("termination_reason", ""),
+                "is_device_mismatch": is_device_mismatch,
+                "device_info": session.get("device_info", ""),
                 "extra_minutes_added": session.get("extra_minutes_added", 0),
                 "duration_minutes": session.get("duration_minutes", 60),
                 "quiz_score": session.get("quiz_score", 0.0),
@@ -231,6 +241,8 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                     "anti_cheat_overall": s_data.get("anti_cheat_overall", "SAFE"),
                     "anti_cheat_violations": s_data.get("anti_cheat_violations", []),
                     "anti_cheat_summary": s_data.get("anti_cheat_summary", "Hợp lệ"),
+                    "device_info": s_data.get("device_info", "Chưa xác định"),
+                    "device_first_login": s_data.get("device_first_login", ""),
                     "exam_token": s_data.get("exam_token", ""),
                     "case_1": {
                         "title": c1_meta.get("title", "Văn bản 1"),
@@ -411,7 +423,9 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                 cohort=body.get("cohort", "Khóa 1"),
                 class_name=body.get("class_name", "Lớp 01 - Văn thư lưu trữ"),
                 duration_minutes=int(body.get("duration_minutes", 60)),
-                sbd=s_sbd
+                sbd=s_sbd,
+                device_id=str(body.get("device_id") or "").strip(),
+                device_info=str(body.get("device_info") or "").strip()
             )
             if "error" in exam_data:
                 self.send_json({"status": "error", "detail": exam_data["error"]}, 400)
@@ -568,6 +582,16 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             extra_minutes = int(body.get("extra_minutes", 15))
             res = ExamEngine.reopen_or_retake_exam(student_id, mode=mode, extra_minutes=extra_minutes)
             print(f"👉 [CHO LÀM LẠI BÀI THI] MSSV='{student_id}', Hình thức='{mode}', Thêm={extra_minutes}p -> {res.get('status', res.get('error'))}")
+            self.send_json(res)
+
+        # 5c. GIÁO VIÊN MỞ KHÓA RÀNG BUỘC THIẾT BỊ (CHO PHÉP CHUYỂN MÁY)
+        elif path == "/api/teacher/unlock-device":
+            length = int(self.headers.get('Content-Length', 0))
+            raw_body = self.rfile.read(length).decode('utf-8') if length > 0 else "{}"
+            body = json.loads(raw_body)
+            student_id = body.get("student_id", "").strip()
+            res = ExamEngine.unlock_student_device(student_id)
+            print(f"👉 [MỞ KHÓA THIẾT BỊ] MSSV='{student_id}' -> {res.get('status', res.get('error'))}")
             self.send_json(res)
 
         # 6. CẤU HÌNH SỐ CÂU TRẮC NGHIỆM ĐỀ THI (5 hoặc 10 câu)

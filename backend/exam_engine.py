@@ -560,7 +560,9 @@ class ExamEngine:
         class_name: str = "Lớp 01 - Văn thư lưu trữ",
         duration_minutes: int = 60,
         force_new: bool = False,
-        sbd: str = ""
+        sbd: str = "",
+        device_id: str = "",
+        device_info: str = ""
     ) -> Dict[str, Any]:
         now = time.time()
         sbd_val = str(sbd).strip() if sbd else student_id
@@ -571,7 +573,43 @@ class ExamEngine:
                 return {
                     "error": "Bạn đã nộp bài thi rồi! Nếu lỡ tay bấm nộp nhầm và muốn làm tiếp, vui lòng báo Giảng viên mở lại bài thi cho bạn."
                 }
-            # 2. Nếu phiên thi đang mở (hoặc vừa được Giảng viên mở lại), khôi phục bài làm dở
+
+            # 2. CHỐNG GIAN LẬN: KIỂM TRA ĐĂNG NHẬP 01 THIẾT BỊ DUY NHẤT
+            bound_dev = existing.get("device_id")
+            bound_info = existing.get("device_info", "Thiết bị ban đầu")
+            
+            if bound_dev and device_id and bound_dev != device_id:
+                # Ghi nhận vi phạm đăng nhập từ thiết bị lạ
+                dev_label = device_info or "Thiết bị lạ / Trình duyệt khác"
+                v_time = time.strftime("%H:%M:%S")
+                violation_text = f"Đăng nhập trái phép từ thiết bị khác: {dev_label} (Thiết bị gốc đã khóa: {bound_info})"
+                violations = existing.setdefault("anti_cheat_violations", [])
+                violations.append({
+                    "time": v_time,
+                    "type": "DEVICE_MISMATCH",
+                    "detail": violation_text
+                })
+                existing["anti_cheat_overall"] = "CHEATING"
+                existing["anti_cheat_summary"] = "CẢNH BÁO: Phát hiện đăng nhập từ 2 thiết bị khác nhau!"
+                
+                return {
+                    "error": (
+                        f"⛔ CẢNH BÁO GIAN LẬN THI CỬ:\n\n"
+                        f"Mã sinh viên '{student_id}' đã được đăng nhập làm bài trên một thiết bị khác:\n"
+                        f"[{bound_info} - Bắt đầu lúc {existing.get('device_first_login', 'trước đó')}].\n\n"
+                        f"Quy chế thi quy định: Mỗi thí sinh CHỈ ĐƯỢC PHÉP LÀM BÀI TRÊN 01 THIẾT BỊ DUY NHẤT!\n"
+                        f"Hệ thống đã ghi nhận vi phạm và phát tín hiệu cảnh báo tới Giám thị phòng thi.\n\n"
+                        f"Nếu máy tính của bạn bị hỏng/mất nguồn trong phòng thi, vui lòng báo trực tiếp Giám thị để được MỞ KHÓA ĐỔI MÁY."
+                    )
+                }
+
+            # Nếu cùng thiết bị hoặc vừa được Giám thị mở khóa thiết bị
+            if not bound_dev and device_id:
+                existing["device_id"] = device_id
+                existing["device_info"] = device_info or "Chưa xác định"
+                existing["device_first_login"] = time.strftime("%H:%M:%S")
+
+            # 3. Nếu phiên thi đang mở (hoặc vừa được Giảng viên mở lại), khôi phục bài làm dở
             rem_sec = max(0, int(existing.get("end_time", now) - now))
             if rem_sec > 0:
                 return {
@@ -657,6 +695,9 @@ class ExamEngine:
             "start_time": start_time,
             "end_time": end_time,
             "exam_token": exam_token,
+            "device_id": device_id,
+            "device_info": device_info or "Chưa xác định",
+            "device_first_login": time.strftime("%H:%M:%S"),
             "is_submitted": False,
             "is_terminated": False,
             "termination_reason": "",
@@ -667,7 +708,9 @@ class ExamEngine:
             "quiz_score": 0.0,
             "word_scores": {},
             "final_score": 0.0,
-            "anti_cheat_overall": "SAFE"
+            "anti_cheat_overall": "SAFE",
+            "anti_cheat_summary": "Hợp lệ",
+            "anti_cheat_violations": []
         }
 
         ACTIVE_SESSIONS[student_id] = session_data
@@ -818,6 +861,34 @@ class ExamEngine:
                 "extra_minutes_added": session.get("extra_minutes_added", 0),
                 "message": f"Đã mở lại bài thi thành công! Thí sinh {student_name} có thể tiếp tục làm bài (còn ~{rem_m} phút)."
             }
+
+    @staticmethod
+    def unlock_student_device(student_id: str) -> Dict[str, Any]:
+        """Giáo viên mở khóa ràng buộc thiết bị cho thí sinh (cho phép chuyển sang máy khác khi máy bị hỏng)"""
+        session = ACTIVE_SESSIONS.get(student_id)
+        if not session:
+            return {"error": "Không tìm thấy phiên thi của thí sinh này"}
+        
+        old_dev = session.get("device_info", "Thiết bị cũ")
+        session["device_id"] = None
+        session["device_info"] = None
+        
+        violations = session.setdefault("anti_cheat_violations", [])
+        violations.append({
+            "time": time.strftime("%H:%M:%S"),
+            "type": "DEVICE_UNLOCKED",
+            "detail": f"Giám thị đã MỞ KHÓA THIẾT BỊ (Máy cũ: {old_dev}) cho phép đổi sang thiết bị mới."
+        })
+        if session.get("anti_cheat_overall") == "CHEATING":
+            session["anti_cheat_overall"] = "WARNING"
+            session["anti_cheat_summary"] = "Đã được Giám thị xác nhận cho đổi máy"
+
+        return {
+            "status": "success",
+            "student_id": student_id,
+            "student_name": session.get("student_name", student_id),
+            "message": f"Đã mở khóa thiết bị thành công cho thí sinh {session.get('student_name', student_id)}. Thí sinh có thể chuyển sang máy mới và đăng nhập lại."
+        }
 
     @staticmethod
     def create_official_docx_template(student_id: str, case_index: int) -> str:

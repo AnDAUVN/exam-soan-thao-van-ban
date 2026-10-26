@@ -41,6 +41,11 @@ class StartExamRequest(BaseModel):
     cohort: str = "Khóa 1"
     class_name: str = "Lớp 01 - Văn thư lưu trữ"
     duration_minutes: int = 60
+    device_id: Optional[str] = ""
+    device_info: Optional[str] = ""
+
+class UnlockDeviceRequest(BaseModel):
+    student_id: str
 
 class SubmitQuizRequest(BaseModel):
     student_id: str
@@ -147,7 +152,9 @@ def start_exam(req: StartExamRequest):
         cohort=req.cohort,
         class_name=req.class_name,
         duration_minutes=req.duration_minutes,
-        sbd=sbd_val
+        sbd=sbd_val,
+        device_id=(req.device_id or "").strip(),
+        device_info=(req.device_info or "").strip()
     )
     if "error" in exam_data:
         raise HTTPException(status_code=400, detail=exam_data["error"])
@@ -204,7 +211,7 @@ async def upload_docx(
     }
 
 @app.get("/api/exam/session/{student_id}")
-def get_session(student_id: str):
+def get_session(student_id: str, device_id: Optional[str] = Query(None)):
     session = ACTIVE_SESSIONS.get(student_id)
     if not session:
         raise HTTPException(status_code=404, detail="Không tìm thấy phiên thi")
@@ -212,6 +219,12 @@ def get_session(student_id: str):
     remaining = max(0, int(session.get("end_time", time.time()) - time.time()))
     if remaining <= 0 and not session.get("is_submitted", False):
         session["is_submitted"] = True
+
+    is_device_mismatch = False
+    bound_dev = session.get("device_id")
+    if bound_dev and device_id and bound_dev != device_id.strip():
+        is_device_mismatch = True
+
     return {
         "student_id": session["student_id"],
         "student_name": session["student_name"],
@@ -222,6 +235,8 @@ def get_session(student_id: str):
         "is_submitted": session.get("is_submitted", False),
         "is_terminated": session.get("is_terminated", False),
         "termination_reason": session.get("termination_reason", ""),
+        "is_device_mismatch": is_device_mismatch,
+        "device_info": session.get("device_info", ""),
         "extra_minutes_added": session.get("extra_minutes_added", 0),
         "duration_minutes": session.get("duration_minutes", 60),
         "quiz_score": session.get("quiz_score", 0.0),
@@ -318,6 +333,8 @@ def get_teacher_students(
             "anti_cheat_overall": s_data.get("anti_cheat_overall", "SAFE"),
             "anti_cheat_violations": s_data.get("anti_cheat_violations", []),
             "anti_cheat_summary": s_data.get("anti_cheat_summary", "Hợp lệ"),
+            "device_info": s_data.get("device_info", "Chưa xác định"),
+            "device_first_login": s_data.get("device_first_login", ""),
             "exam_token": s_data.get("exam_token", ""),
             "case_1": {
                 "title": c1_meta.get("title", "Văn bản 1"),
@@ -368,6 +385,13 @@ def terminate_exam(req: TerminateExamRequest):
 @app.post("/api/teacher/retake-exam")
 def retake_exam(req: RetakeExamRequest):
     res = ExamEngine.reopen_or_retake_exam(req.student_id, req.mode or "resume", req.extra_minutes or 15)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+@app.post("/api/teacher/unlock-device")
+def unlock_device(req: UnlockDeviceRequest):
+    res = ExamEngine.unlock_student_device(req.student_id)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
     return res

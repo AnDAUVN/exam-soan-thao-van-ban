@@ -32,6 +32,36 @@ function onCohortChange() {
 // Gọi tải danh mục ngay khi khởi động
 loadClassesCatalog();
 
+// Quản lý định danh thiết bị độc nhất (Chống gian lận 1 thí sinh - 1 thiết bị duy nhất)
+function getOrCreateDeviceId() {
+    let devId = localStorage.getItem('exam_device_id');
+    if (!devId) {
+        devId = 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+        localStorage.setItem('exam_device_id', devId);
+    }
+    return devId;
+}
+
+function getDeviceInfo() {
+    const ua = navigator.userAgent;
+    let os = "Thiết bị khác";
+    if (ua.indexOf("Win") !== -1) os = "Windows PC";
+    else if (ua.indexOf("Mac") !== -1) os = "MacBook / macOS";
+    else if (ua.indexOf("Android") !== -1) os = "Điện thoại Android";
+    else if (ua.indexOf("iPhone") !== -1) os = "iPhone (iOS)";
+    else if (ua.indexOf("iPad") !== -1) os = "iPad (iOS)";
+    else if (ua.indexOf("Linux") !== -1) os = "Linux PC";
+
+    let browser = "Web Browser";
+    if (ua.indexOf("Edg") !== -1) browser = "Edge";
+    else if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+    else if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Safari";
+    else if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+
+    const screenRes = `${window.screen.width}x${window.screen.height}`;
+    return `${os} - ${browser} (${screenRes})`;
+}
+
 // 1. BẮT ĐẦU THI
 document.getElementById('start-exam-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -41,6 +71,9 @@ document.getElementById('start-exam-form').addEventListener('submit', async (e) 
     const cohort = document.getElementById('input-cohort').value;
     const className = document.getElementById('input-class').value;
     const duration = parseInt(document.getElementById('input-duration').value);
+
+    const deviceId = getOrCreateDeviceId();
+    const deviceInfo = getDeviceInfo();
 
     try {
         const response = await fetch('/api/exam/start', {
@@ -52,7 +85,9 @@ document.getElementById('start-exam-form').addEventListener('submit', async (e) 
                 student_name: studentName,
                 cohort: cohort,
                 class_name: className,
-                duration_minutes: duration
+                duration_minutes: duration,
+                device_id: deviceId,
+                device_info: deviceInfo
             })
         });
 
@@ -60,11 +95,11 @@ document.getElementById('start-exam-form').addEventListener('submit', async (e) 
         if (res.status === 'success') {
             examData = res.data;
             if (examData.is_resumed) {
-                alert(`📋 KHÔI PHỤC BÀI THI THÀNH CÔNG:\nChào ${examData.student_name}, bài thi đang làm dở của bạn đã được khôi phục theo phê duyệt của Giảng viên!\nThời gian còn lại: ~${Math.ceil(examData.remaining_seconds / 60)} phút.`);
+                alert(`📋 KHÔI PHỤC BÀI THI THÀNH CÔNG:\nChào ${examData.student_name}, bài thi đang làm dở của bạn đã được khôi phục trên thiết bị này!\nThời gian còn lại: ~${Math.ceil(examData.remaining_seconds / 60)} phút.`);
             }
             initExamRoom();
         } else {
-            alert('⚠️ ' + (res.detail || res.error || 'Không thể tạo phiên thi'));
+            alert(res.detail || res.error || 'Không thể tạo phiên thi');
         }
     } catch (err) {
         alert('Lỗi kết nối máy chủ thi: ' + err.message);
@@ -137,16 +172,26 @@ function updateTimerDisplay() {
     }
 }
 
-// 3b. ĐỒNG BỘ THỜI GIAN VÀ TRẠNG THÁI TỪ MÁY CHỦ (GIA HẠN / ĐÌNH CHỈ)
+// 3b. ĐỒNG BỘ THỜI GIAN VÀ TRẠNG THÁI TỪ MÁY CHỦ (GIA HẠN / ĐÌNH CHỈ / CHỐNG ĐĂNG NHẬP THIẾT BỊ 2)
 function startSessionSync() {
     if (!examData || !examData.student_id) return;
     if (syncInterval) clearInterval(syncInterval);
     syncInterval = setInterval(async () => {
         try {
-            const response = await fetch(`/api/exam/session/${examData.student_id}`);
+            const devId = getOrCreateDeviceId();
+            const response = await fetch(`/api/exam/session/${encodeURIComponent(examData.student_id)}?device_id=${encodeURIComponent(devId)}`);
             if (response.ok) {
                 const session = await response.json();
                 
+                // 0. Kiểm tra cảnh báo nếu có thiết bị khác cố tình đăng nhập trái phép
+                if (session.is_device_mismatch) {
+                    clearInterval(timerInterval);
+                    clearInterval(syncInterval);
+                    alert(`⛔ CẢNH BÁO VI PHẠM QUY CHẾ THI:\n\nThiết bị này không khớp với thiết bị ban đầu được đăng ký cho bài thi của bạn!\nMỗi thí sinh CHỈ ĐƯỢC PHÉP LÀM BÀI TRÊN 01 THIẾT BỊ DUY NHẤT.\nVui lòng dừng làm bài và báo ngay cho Giám thị.`);
+                    location.reload();
+                    return;
+                }
+
                 // 1. Kiểm tra nếu giảng viên đình chỉ thi
                 if (session.is_terminated) {
                     clearInterval(timerInterval);
