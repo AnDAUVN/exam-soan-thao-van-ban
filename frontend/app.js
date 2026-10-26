@@ -305,10 +305,16 @@ function updateTimerDisplay() {
 function startSessionSync() {
     if (!examData || !examData.student_id) return;
     if (syncInterval) clearInterval(syncInterval);
+    
+    // Tối ưu cho ca thi 80 sinh viên trên Wi-Fi trường:
+    // Chu kỳ 5.5s kèm độ trễ ngẫu nhiên (jitter) để tránh 80 máy cùng phát xung đồng bộ một lúc làm nghẽn Access Point Wi-Fi
+    const syncPeriod = 5000 + Math.floor(Math.random() * 2000);
     syncInterval = setInterval(async () => {
         try {
             const devId = getOrCreateDeviceId();
-            const response = await fetch(`/api/exam/session/${encodeURIComponent(examData.student_id)}?device_id=${encodeURIComponent(devId)}`);
+            const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
+            const headers = tok ? { 'X-Exam-Token': tok } : {};
+            const response = await fetch(`/api/exam/session/${encodeURIComponent(examData.student_id)}?device_id=${encodeURIComponent(devId)}`, { headers });
             if (response.ok) {
                 const session = await response.json();
                 
@@ -344,9 +350,9 @@ function startSessionSync() {
                 }
             }
         } catch (e) {
-            // Bỏ qua lỗi gián đoạn mạng tạm thời
+            // Rớt sóng Wi-Fi tạm thời, tự động thử lại ở chu kỳ tiếp theo mà không làm gián đoạn bài làm
         }
-    }, 4000);
+    }, syncPeriod);
 }
 
 function showTimeExtensionToast(msg) {
@@ -376,12 +382,29 @@ function renderQuizQuestions(questions) {
     if (navQuizTitle) {
         navQuizTitle.innerText = `1. Trắc nghiệm (${totalQ} câu)`;
     }
+
+    // Tự động khôi phục đáp án đã chọn nếu thí sinh bị rớt Wi-Fi hoặc tải lại trang F5
+    if (examData && examData.student_id) {
+        try {
+            const savedAnswersStr = sessionStorage.getItem(`user_answers_${examData.student_id}`);
+            if (savedAnswersStr) {
+                userAnswers = Object.assign({}, JSON.parse(savedAnswersStr), userAnswers);
+            }
+        } catch (e) {}
+        if (examData.saved_answers && typeof examData.saved_answers === 'object') {
+            userAnswers = Object.assign({}, examData.saved_answers, userAnswers);
+        }
+    }
+
+    const answeredCount = Object.keys(userAnswers).length;
     const badge = document.getElementById('quiz-badge');
     if (badge) {
-        badge.innerText = `0/${totalQ}`;
+        badge.innerText = `${answeredCount}/${totalQ}`;
     }
 
     questions.forEach((q, idx) => {
+        const currentSelected = userAnswers[q.question_id];
+        const isAnswered = (currentSelected !== undefined && currentSelected !== null);
         const card = document.createElement('div');
         card.id = `q-card-${idx + 1}`;
         card.className = 'bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-3';
@@ -391,21 +414,25 @@ function renderQuizQuestions(questions) {
                 <p class="text-sm font-semibold text-slate-800 leading-snug">${q.question}</p>
             </div>
             <div class="space-y-2 pt-1">
-                ${q.options.map((opt, optIdx) => `
+                ${q.options.map((opt, optIdx) => {
+                    const checked = (currentSelected === opt) ? 'checked' : '';
+                    return `
                     <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer text-sm transition text-slate-700">
-                        <input type="radio" name="question_${q.question_id}" value="${opt}" 
+                        <input type="radio" name="question_${q.question_id}" value="${opt}" ${checked}
                                onchange="selectAnswer(${q.question_id}, '${opt.replace(/'/g, "\\'")}', ${idx + 1})"
                                 class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         <span><b>${String.fromCharCode(65 + optIdx)}.</b> ${opt}</span>
                     </label>
-                `).join('')}
+                `;}).join('')}
             </div>
         `;
         listEl.appendChild(card);
 
         const navBtn = document.createElement('button');
         navBtn.id = `nav-q-${idx + 1}`;
-        navBtn.className = 'h-9 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition';
+        navBtn.className = isAnswered
+            ? 'h-9 text-xs font-semibold rounded-lg border border-blue-600 bg-blue-600 text-white transition'
+            : 'h-9 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition';
         navBtn.innerText = idx + 1;
         navBtn.onclick = () => {
             switchTab('quiz');
@@ -417,6 +444,13 @@ function renderQuizQuestions(questions) {
 
 function selectAnswer(questionId, selectedOption, index) {
     userAnswers[questionId] = selectedOption;
+
+    // Lưu ngay tức thời vào sessionStorage để chống mất bài khi rớt Wi-Fi
+    if (examData && examData.student_id) {
+        try {
+            sessionStorage.setItem(`user_answers_${examData.student_id}`, JSON.stringify(userAnswers));
+        } catch (e) {}
+    }
 
     const navBtn = document.getElementById(`nav-q-${index}`);
     if (navBtn) {
@@ -633,18 +667,32 @@ async function submitQuizAnswers() {
     if (!examData) return;
     try {
         const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
-        const response = await fetch('/api/exam/submit-quiz', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Exam-Token': tok
-            },
-            body: JSON.stringify({
-                student_id: examData.student_id,
-                answers: userAnswers,
-                token: tok
-            })
-        });
+        let response = null;
+        let attempts = 0;
+        while (attempts < 2) {
+            attempts++;
+            try {
+                response = await fetch('/api/exam/submit-quiz', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Exam-Token': tok
+                    },
+                    body: JSON.stringify({
+                        student_id: examData.student_id,
+                        answers: userAnswers,
+                        token: tok
+                    })
+                });
+                break;
+            } catch (netErr) {
+                if (attempts < 2) {
+                    await new Promise(r => setTimeout(r, 1500));
+                } else {
+                    throw netErr;
+                }
+            }
+        }
         const res = await response.json();
         if (res.status === 'success') {
             alert(`Đã lưu kết quả trắc nghiệm!\nĐúng: ${res.results.correct_count}/${res.results.total_questions} câu\nĐiểm: ${res.results.score} điểm.`);
@@ -675,13 +723,28 @@ async function handleFileUpload(caseIndex) {
     resultBox.innerHTML = '<p class="text-xs text-blue-600"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải lên và đối chiếu quy chuẩn Ô 1 - Ô 9 theo Nghị định 30...</p>';
 
     try {
-        const response = await fetch('/api/exam/upload-docx', {
-            method: 'POST',
-            headers: {
-                'X-Exam-Token': tok
-            },
-            body: formData
-        });
+        let response = null;
+        let attempts = 0;
+        while (attempts < 2) {
+            attempts++;
+            try {
+                response = await fetch('/api/exam/upload-docx', {
+                    method: 'POST',
+                    headers: {
+                        'X-Exam-Token': tok
+                    },
+                    body: formData
+                });
+                break;
+            } catch (netErr) {
+                if (attempts < 2) {
+                    resultBox.innerHTML = '<p class="text-xs text-amber-600"><i class="fa-solid fa-rotate fa-spin"></i> Mạng Wi-Fi chập chờn, đang tự động kết nối lại và nộp bài...</p>';
+                    await new Promise(r => setTimeout(r, 1500));
+                } else {
+                    throw netErr;
+                }
+            }
+        }
         const res = await response.json();
         if (res.status === 'success') {
             const grade = res.grade;

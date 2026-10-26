@@ -30,22 +30,32 @@ ROSTER_FILE = os.path.join(BASE_DIR, "class_roster.json")
 SESSIONS_BACKUP_FILE = os.path.join(BASE_DIR, "sessions_backup.json")
 os.makedirs(TEMPLATE_STORAGE, exist_ok=True)
 
+import threading
+_SESSIONS_LOCK = threading.RLock()
+
 def load_active_sessions_backup():
-    if os.path.exists(SESSIONS_BACKUP_FILE):
-        try:
-            with open(SESSIONS_BACKUP_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    ACTIVE_SESSIONS.update(data)
-        except Exception as e:
-            print("Lỗi đọc sessions_backup.json:", e)
+    with _SESSIONS_LOCK:
+        if os.path.exists(SESSIONS_BACKUP_FILE):
+            try:
+                with open(SESSIONS_BACKUP_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        ACTIVE_SESSIONS.update(data)
+            except Exception as e:
+                print("Lỗi đọc sessions_backup.json:", e)
 
 def save_active_sessions_backup():
-    try:
-        with open(SESSIONS_BACKUP_FILE, "w", encoding="utf-8") as f:
-            json.dump(ACTIVE_SESSIONS, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print("Lỗi lưu sessions_backup.json:", e)
+    """Ghi đĩa dự phòng an toàn đa luồng (Atomic Write), chống tranh chấp dữ liệu khi 80 thí sinh thao tác cùng lúc"""
+    with _SESSIONS_LOCK:
+        try:
+            tmp_path = SESSIONS_BACKUP_FILE + ".tmp"
+            sessions_copy = dict(ACTIVE_SESSIONS)
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(sessions_copy, f, ensure_ascii=False, indent=2)
+            if os.path.exists(tmp_path):
+                os.replace(tmp_path, SESSIONS_BACKUP_FILE)
+        except Exception as e:
+            print("Lỗi lưu sessions_backup.json:", e)
 
 load_active_sessions_backup()
 
@@ -891,6 +901,7 @@ class ExamEngine:
                         for idx, c in enumerate(existing.get("practice_cases", []))
                     ],
                     "exam_token": existing.get("exam_token", ""),
+                    "saved_answers": existing.get("quiz_answers", {}),
                     "is_resumed": True
                 }
 
@@ -1301,6 +1312,7 @@ class ExamEngine:
             })
 
         quiz_score = round((correct_count / total_questions) * quiz_max, 2)
+        session["quiz_answers"] = student_answers
         session["quiz_score"] = quiz_score
         session["quiz_results"] = {
             "correct_count": correct_count,

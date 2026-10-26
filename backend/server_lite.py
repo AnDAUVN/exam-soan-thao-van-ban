@@ -1117,6 +1117,10 @@ if __name__ == "__main__":
     print("  2. Neu Wi-Fi truong chan ket noi: Bat 'Mobile Hotspot' tren Laptop")
     print("     va cho sinh vien ket noi vao Hotspot cua Thay.")
     print("==================================================================")
-    print(" May chu dang hoat dong san sang tiep nhan ca thi...")
-    with socketserver.TCPServer(("", PORT), ExamHandler) as httpd:
+    class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
+    print(" May chu da luong (Multi-threading) san sang tiep nhan ca thi 80+ sinh vien...")
+    with ThreadedTCPServer(("", PORT), ExamHandler) as httpd:
         httpd.serve_forever()

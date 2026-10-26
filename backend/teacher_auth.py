@@ -2,38 +2,45 @@ import os
 import json
 import uuid
 import time
+import threading
 from typing import Tuple, Dict, Any
 
 BASE_DIR = os.path.dirname(__file__)
 TEACHER_AUTH_FILE = os.path.join(BASE_DIR, "teacher_auth.json")
 DEFAULT_TEACHER_PASSWORD = os.environ.get("TEACHER_PASSWORD", "GiaoVien@2026")
+_AUTH_LOCK = threading.RLock()
 
 def load_teacher_auth() -> Dict[str, Any]:
-    if os.path.exists(TEACHER_AUTH_FILE):
-        try:
-            with open(TEACHER_AUTH_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    data.setdefault("password", DEFAULT_TEACHER_PASSWORD)
-                    data.setdefault("active_tokens", {})
-                    return data
-        except Exception as e:
-            print("Lỗi đọc teacher_auth.json:", e)
-    
-    # Mặc định ban đầu
-    initial_data = {
-        "password": DEFAULT_TEACHER_PASSWORD,
-        "active_tokens": {}
-    }
-    save_teacher_auth(initial_data)
-    return initial_data
+    with _AUTH_LOCK:
+        if os.path.exists(TEACHER_AUTH_FILE):
+            try:
+                with open(TEACHER_AUTH_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        data.setdefault("password", DEFAULT_TEACHER_PASSWORD)
+                        data.setdefault("active_tokens", {})
+                        return data
+            except Exception as e:
+                print("Lỗi đọc teacher_auth.json:", e)
+        
+        # Mặc định ban đầu
+        initial_data = {
+            "password": DEFAULT_TEACHER_PASSWORD,
+            "active_tokens": {}
+        }
+        save_teacher_auth(initial_data)
+        return initial_data
 
 def save_teacher_auth(data: Dict[str, Any]):
-    try:
-        with open(TEACHER_AUTH_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print("Lỗi lưu teacher_auth.json:", e)
+    with _AUTH_LOCK:
+        try:
+            tmp_path = TEACHER_AUTH_FILE + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            if os.path.exists(tmp_path):
+                os.replace(tmp_path, TEACHER_AUTH_FILE)
+        except Exception as e:
+            print("Lỗi lưu teacher_auth.json:", e)
 
 class TeacherAuthService:
     @staticmethod
