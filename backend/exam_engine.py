@@ -26,7 +26,31 @@ BASE_DIR = os.path.dirname(__file__)
 TEMPLATE_STORAGE = os.path.join(BASE_DIR, "templates_generated")
 CATALOG_FILE = os.path.join(BASE_DIR, "classes_catalog.json")
 QUESTIONS_BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
+ROSTER_FILE = os.path.join(BASE_DIR, "class_roster.json")
 os.makedirs(TEMPLATE_STORAGE, exist_ok=True)
+
+def load_class_roster_data() -> Dict[str, Any]:
+    if os.path.exists(ROSTER_FILE):
+        try:
+            with open(ROSTER_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    data.setdefault("config", {"enforce_roster": True})
+                    data.setdefault("rosters", {})
+                    return data
+        except Exception as e:
+            print("Lỗi đọc danh sách lớp:", e)
+    return {
+        "config": {"enforce_roster": True},
+        "rosters": {}
+    }
+
+def save_class_roster_data(data: Dict[str, Any]):
+    try:
+        with open(ROSTER_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Lỗi lưu danh sách lớp:", e)
 
 def load_classes_catalog() -> Dict[str, List[str]]:
     if os.path.exists(CATALOG_FILE):
@@ -183,6 +207,160 @@ class ExamEngine:
             save_classes_catalog(COHORTS_AND_CLASSES)
             return {"status": "success", "catalog": COHORTS_AND_CLASSES}
         return {"error": f"Không tìm thấy khóa '{cohort}' để xóa"}
+
+    # ================= QUẢN LÝ DANH SÁCH THÍ SINH THEO LỚP (ROSTER) =================
+    @staticmethod
+    def get_roster_key(cohort: str, class_name: str) -> str:
+        return f"{cohort.strip().upper()}___{class_name.strip().upper()}"
+
+    @staticmethod
+    def get_class_roster(cohort: str, class_name: str) -> Tuple[bool, List[Dict[str, str]]]:
+        data = load_class_roster_data()
+        key = ExamEngine.get_roster_key(cohort, class_name)
+        if "class_enforce" in data and key in data["class_enforce"]:
+            enforce = bool(data["class_enforce"][key])
+        else:
+            enforce = bool(data.get("config", {}).get("enforce_roster", True))
+        roster = data.get("rosters", {}).get(key, [])
+        return enforce, roster
+
+    @staticmethod
+    def get_full_roster_data() -> Dict[str, Any]:
+        return load_class_roster_data()
+
+    @staticmethod
+    def save_roster_for_class(cohort: str, class_name: str, students: List[Dict[str, str]]) -> Dict[str, Any]:
+        data = load_class_roster_data()
+        key = ExamEngine.get_roster_key(cohort, class_name)
+        data.setdefault("rosters", {})[key] = students
+        save_class_roster_data(data)
+        return {"status": "success", "count": len(students), "cohort": cohort, "class_name": class_name}
+
+    @staticmethod
+    def add_student_to_roster(cohort: str, class_name: str, sbd: str, student_id: str, student_name: str) -> Dict[str, Any]:
+        data = load_class_roster_data()
+        key = ExamEngine.get_roster_key(cohort, class_name)
+        roster = data.setdefault("rosters", {}).setdefault(key, [])
+        sid = student_id.strip()
+        roster = [s for s in roster if s.get("student_id", "").strip().lower() != sid.lower()]
+        roster.append({
+            "sbd": sbd.strip() or f"SBD{len(roster)+1:02d}",
+            "student_id": sid,
+            "student_name": student_name.strip()
+        })
+        data["rosters"][key] = roster
+        save_class_roster_data(data)
+        return {"status": "success", "count": len(roster)}
+
+    @staticmethod
+    def delete_student_from_roster(cohort: str, class_name: str, student_id: str) -> Dict[str, Any]:
+        data = load_class_roster_data()
+        key = ExamEngine.get_roster_key(cohort, class_name)
+        roster = data.setdefault("rosters", {}).get(key, [])
+        sid = student_id.strip().lower()
+        new_roster = [s for s in roster if s.get("student_id", "").strip().lower() != sid]
+        data["rosters"][key] = new_roster
+        save_class_roster_data(data)
+        return {"status": "success", "count": len(new_roster)}
+
+    @staticmethod
+    def set_roster_enforce(*args, **kwargs) -> Dict[str, Any]:
+        data = load_class_roster_data()
+        cohort = kwargs.get("cohort", "")
+        class_name = kwargs.get("class_name", "")
+        enforce = kwargs.get("enforce", kwargs.get("enforced", None))
+
+        if len(args) == 1 and isinstance(args[0], bool):
+            enforce = args[0]
+        elif len(args) == 3:
+            cohort, class_name, enforce = args[0], args[1], args[2]
+
+        if enforce is None:
+            enforce = True
+
+        enforce_bool = bool(enforce)
+        data.setdefault("config", {})["enforce_roster"] = enforce_bool
+        if cohort and class_name:
+            key = ExamEngine.get_roster_key(cohort, class_name)
+            data.setdefault("class_enforce", {})[key] = enforce_bool
+
+        save_class_roster_data(data)
+        return {"status": "success", "enforce_roster": enforce_bool, "cohort": cohort, "class_name": class_name}
+
+    @staticmethod
+    def parse_roster_text(raw_text: str) -> List[Dict[str, str]]:
+        students = []
+        lines = [line.strip() for line in raw_text.strip().splitlines() if line.strip()]
+        counter = 1
+        for line in lines:
+            parts = []
+            if "\t" in line:
+                parts = [p.strip() for p in line.split("\t") if p.strip()]
+            elif "," in line:
+                parts = [p.strip() for p in line.split(",") if p.strip()]
+            elif ";" in line:
+                parts = [p.strip() for p in line.split(";") if p.strip()]
+            else:
+                parts = [p.strip() for p in re.split(r'\s{2,}', line) if p.strip()]
+
+            if not parts:
+                continue
+
+            sbd = ""
+            sid = ""
+            sname = ""
+
+            if len(parts) >= 4:
+                sbd = parts[1]
+                sid = parts[2]
+                sname = " ".join(parts[3:])
+            elif len(parts) == 3:
+                if parts[0].isdigit() and len(parts[0]) <= 3:
+                    sbd = f"SBD{counter:02d}"
+                    sid = parts[1]
+                    sname = parts[2]
+                else:
+                    sbd = parts[0]
+                    sid = parts[1]
+                    sname = parts[2]
+            elif len(parts) == 2:
+                sid = parts[0]
+                sname = parts[1]
+                sbd = f"SBD{counter:02d}"
+            else:
+                continue
+
+            if sid and sname:
+                if not sbd:
+                    sbd = f"SBD{counter:02d}"
+                students.append({
+                    "sbd": sbd.strip(),
+                    "student_id": sid.strip(),
+                    "student_name": sname.strip()
+                })
+                counter += 1
+
+        return students
+
+    @staticmethod
+    def lookup_student_in_roster(cohort: str, class_name: str, student_id: str) -> Dict[str, Any]:
+        enforce, roster = ExamEngine.get_class_roster(cohort, class_name)
+        sid = student_id.strip().lower()
+        match = next((s for s in roster if s.get("student_id", "").strip().lower() == sid), None)
+        if match:
+            return {
+                "status": "success",
+                "found": True,
+                "student_id": match.get("student_id", ""),
+                "student_name": match.get("student_name", ""),
+                "sbd": match.get("sbd", ""),
+                "enforced": enforce
+            }
+        return {
+            "status": "success",
+            "found": False,
+            "enforced": enforce
+        }
 
     # ================= QUẢN LÝ THANG ĐIỂM & RUBRIC CHẤM =================
     @staticmethod
@@ -566,6 +744,33 @@ class ExamEngine:
     ) -> Dict[str, Any]:
         now = time.time()
         sbd_val = str(sbd).strip() if sbd else student_id
+
+        # 0. CHỐNG GIAN LẬN: KIỂM TRA DANH SÁCH LỚP (CHẶN NGƯỜI NGOÀI VÀO PHÒNG THI)
+        is_enforced, roster = ExamEngine.get_class_roster(cohort, class_name)
+        if is_enforced:
+            if roster and len(roster) > 0:
+                match = next((s for s in roster if s.get("student_id", "").strip().lower() == student_id.strip().lower()), None)
+                if not match:
+                    return {
+                        "error": (
+                            f"⛔ TỪ CHỐI TRUY CẬP PHÒNG THI:\n\n"
+                            f"Mã sinh viên '{student_id}' KHÔNG CÓ TRONG DANH SÁCH chính thức của lớp '{class_name}' ({cohort}).\n\n"
+                            f"Quy chế thi quy định: Chỉ thí sinh có tên trong danh sách lớp mới được phép vào thi.\n"
+                            f"Vui lòng kiểm tra lại đúng Khóa/Lớp hoặc liên hệ Giám thị phòng thi."
+                        )
+                    }
+                # Khóa đúng Họ tên và SBD chuẩn từ danh sách chính thức nhà trường
+                student_name = match.get("student_name") or student_name
+                sbd_val = match.get("sbd") or sbd_val
+            else:
+                return {
+                    "error": (
+                        f"⚠️ LỚP CHƯA CẬP NHẬT DANH SÁCH THÍ SINH:\n\n"
+                        f"Lớp '{class_name}' ({cohort}) đang bật chế độ kiểm soát danh sách nhưng Giảng viên chưa nhập danh sách thí sinh cho lớp này.\n\n"
+                        f"Vui lòng báo Giảng viên cập nhật danh sách lớp trên Cổng Giảng viên."
+                    )
+                }
+
         existing = ACTIVE_SESSIONS.get(student_id)
         if existing and not force_new:
             # 1. Nếu sinh viên đã nộp bài và chưa được Giảng viên cho phép làm lại

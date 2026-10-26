@@ -99,6 +99,31 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/classes":
             self.send_json({"status": "success", "catalog": ExamEngine.get_classes_catalog()})
 
+        # QUẢN LÝ DANH SÁCH THÍ SINH THEO LỚP (ROSTER)
+        elif path == "/api/teacher/roster":
+            cohort = query_params.get("cohort", [""])[0]
+            class_name = query_params.get("class_name", [""])[0]
+            enforce, roster = ExamEngine.get_class_roster(cohort, class_name)
+            full_data = ExamEngine.get_full_roster_data()
+            self.send_json({
+                "status": "success",
+                "cohort": cohort,
+                "class_name": class_name,
+                "enforced": enforce,
+                "enforce_roster": enforce,
+                "students": roster,
+                "roster": roster,
+                "count": len(roster),
+                "total": len(roster),
+                "all_rosters": full_data.get("rosters", {})
+            })
+
+        elif path == "/api/exam/lookup-student":
+            cohort = query_params.get("cohort", [""])[0]
+            class_name = query_params.get("class_name", [""])[0]
+            student_id = query_params.get("student_id", [""])[0]
+            self.send_json(ExamEngine.lookup_student_in_roster(cohort, class_name, student_id))
+
         # 3. TẢI PHÔI THI CHÍNH THỨC CÓ NHÚNG TOKEN BẢO MẬT & KHÓA LỚP
         elif path.startswith("/api/exam/download-template/"):
             parts = path.split("/")
@@ -462,6 +487,39 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                 res = {"error": "Hành động không hợp lệ"}
 
             self.send_json(res)
+
+        # CÁC API QUẢN LÝ DANH SÁCH THÍ SINH THEO LỚP (ROSTER)
+        elif path == "/api/teacher/roster/save":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            self.send_json(ExamEngine.save_roster_for_class(body.get("cohort", ""), body.get("class_name", ""), body.get("students", [])))
+
+        elif path == "/api/teacher/roster/add-student":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            self.send_json(ExamEngine.add_student_to_roster(body.get("cohort", ""), body.get("class_name", ""), body.get("sbd", ""), body.get("student_id", ""), body.get("student_name", "")))
+
+        elif path == "/api/teacher/roster/delete-student":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            self.send_json(ExamEngine.delete_student_from_roster(body.get("cohort", ""), body.get("class_name", ""), body.get("student_id", "")))
+
+        elif path == "/api/teacher/roster/set-enforce":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            val = body.get("enforce") if body.get("enforce") is not None else body.get("enforced", True)
+            self.send_json(ExamEngine.set_roster_enforce(
+                cohort=body.get("cohort", ""),
+                class_name=body.get("class_name", ""),
+                enforce=val
+            ))
+
+        elif path == "/api/teacher/roster/parse-text":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            t = body.get("raw_text") if body.get("raw_text") is not None else body.get("text", "")
+            students = ExamEngine.parse_roster_text(t)
+            self.send_json({"status": "success", "students": students, "count": len(students)})
 
         elif path == "/api/exam/submit-quiz":
             length = int(self.headers.get('Content-Length', 0))

@@ -1,0 +1,27 @@
+{
+  "config": {
+    "enforce_roster": true
+  },
+  "rosters": {
+    "K157___HCVPS01": [
+      {
+        "sbd": "SBD01",
+        "student_id": "2200001",
+        "student_name": "Nguyễn Văn An"
+      },
+      {
+        "sbd": "SBD02",
+        "student_id": "2200002",
+        "student_name": "Trần Thị Bình"
+      },
+      {
+        "sbd": "SBD03",
+        "student_id": "2200003",
+        "student_name": "Lê Hoàng Cường"
+      }
+    ]
+  },
+  "class_enforce": {
+    "K157___HCVPS01": true
+  }
+}

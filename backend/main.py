@@ -92,6 +92,33 @@ class PhaseTransitionRequest(BaseModel):
     student_id: str
     phase: str = "WORD"
 
+class SaveRosterRequest(BaseModel):
+    cohort: str
+    class_name: str
+    students: list
+
+class AddStudentRosterRequest(BaseModel):
+    cohort: str
+    class_name: str
+    sbd: Optional[str] = ""
+    student_id: str
+    student_name: str
+
+class DeleteStudentRosterRequest(BaseModel):
+    cohort: str
+    class_name: str
+    student_id: str
+
+class SetRosterEnforceRequest(BaseModel):
+    cohort: Optional[str] = ""
+    class_name: Optional[str] = ""
+    enforce: Optional[bool] = None
+    enforced: Optional[bool] = None
+
+class ParseRosterTextRequest(BaseModel):
+    text: Optional[str] = None
+    raw_text: Optional[str] = None
+
 class ExamConfigRequest(BaseModel):
     mcq_count: int = 10
 
@@ -149,6 +176,55 @@ def manage_classes(req: ClassManageRequest):
     elif action == "delete_cohort":
         return ExamEngine.delete_cohort(cohort)
     return {"error": "Hành động không hợp lệ"}
+
+# ================= QUẢN LÝ DANH SÁCH THÍ SINH THEO LỚP (ROSTER) =================
+@app.get("/api/teacher/roster")
+def get_roster_endpoint(cohort: str = Query(...), class_name: str = Query(...)):
+    enforce, roster = ExamEngine.get_class_roster(cohort, class_name)
+    full_data = ExamEngine.get_full_roster_data()
+    return {
+        "status": "success",
+        "cohort": cohort,
+        "class_name": class_name,
+        "enforced": enforce,
+        "enforce_roster": enforce,
+        "students": roster,
+        "roster": roster,
+        "count": len(roster),
+        "total": len(roster),
+        "all_rosters": full_data.get("rosters", {})
+    }
+
+@app.post("/api/teacher/roster/save")
+def save_roster_endpoint(req: SaveRosterRequest):
+    return ExamEngine.save_roster_for_class(req.cohort, req.class_name, req.students)
+
+@app.post("/api/teacher/roster/add-student")
+def add_student_roster_endpoint(req: AddStudentRosterRequest):
+    return ExamEngine.add_student_to_roster(req.cohort, req.class_name, req.sbd or "", req.student_id, req.student_name)
+
+@app.post("/api/teacher/roster/delete-student")
+def delete_student_roster_endpoint(req: DeleteStudentRosterRequest):
+    return ExamEngine.delete_student_from_roster(req.cohort, req.class_name, req.student_id)
+
+@app.post("/api/teacher/roster/set-enforce")
+def set_roster_enforce_endpoint(req: SetRosterEnforceRequest):
+    val = req.enforce if req.enforce is not None else (req.enforced if req.enforced is not None else True)
+    return ExamEngine.set_roster_enforce(cohort=req.cohort or "", class_name=req.class_name or "", enforce=val)
+
+@app.post("/api/teacher/roster/parse-text")
+def parse_roster_text_endpoint(req: ParseRosterTextRequest):
+    t = req.raw_text if req.raw_text is not None else (req.text or "")
+    students = ExamEngine.parse_roster_text(t)
+    return {"status": "success", "students": students, "count": len(students)}
+
+@app.get("/api/exam/lookup-student")
+def lookup_student_endpoint(
+    cohort: str = Query(...),
+    class_name: str = Query(...),
+    student_id: str = Query(...)
+):
+    return ExamEngine.lookup_student_in_roster(cohort, class_name, student_id)
 
 @app.post("/api/exam/start")
 def start_exam(req: StartExamRequest):

@@ -34,6 +34,9 @@
                 <button onclick="openQuestionsBankModal()" class="px-3.5 py-2 text-xs font-semibold text-amber-200 bg-amber-900/80 hover:bg-amber-800 rounded-lg transition flex items-center gap-1.5 border border-amber-700 shadow-sm">
                     <i class="fa-solid fa-book-bookmark"></i> 📚 Ngân Hàng Đề & Cấu Hình
                 </button>
+                <button onclick="openRosterModal()" class="px-3.5 py-2 text-xs font-semibold text-cyan-200 bg-cyan-900/80 hover:bg-cyan-800 rounded-lg transition flex items-center gap-1.5 border border-cyan-700 shadow-sm" title="Quản lý danh sách sinh viên được phép vào phòng thi (Chống người ngoài vào thi)">
+                    <i class="fa-solid fa-user-shield text-cyan-400 text-sm"></i> 👥 Danh Sách Thí Sinh Lớp
+                </button>
                 <button onclick="openAddClassModal()" class="px-3.5 py-2 text-xs font-semibold text-purple-200 bg-purple-900/80 hover:bg-purple-800 rounded-lg transition flex items-center gap-1.5 border border-purple-700 shadow-sm">
                     <i class="fa-solid fa-layer-group"></i> ⚙️ Quản Lý Khóa & Lớp
                 </button>
@@ -575,6 +578,163 @@
             <!-- Footer -->
             <div class="border-t pt-3 flex justify-end">
                 <button onclick="closeQuestionsBankModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition">
+                    Đóng cửa sổ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Quản Lý Danh Sách Thí Sinh Lớp (Chống Người Ngoài Vào Phòng Thi) -->
+    <div id="roster-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 my-8 max-h-[92vh] flex flex-col">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-xl shadow-sm">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            Quản Lý Danh Sách Thí Sinh Lớp
+                            <span id="roster-badge-enforce" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <i class="fa-solid fa-shield-halved"></i> Đang Bật Bảo Mật
+                            </span>
+                        </h3>
+                        <p class="text-xs text-slate-500">Chỉ sinh viên có MSSV trong danh sách này mới được cấp đề thi, chống người ngoài nhận link vào làm hộ</p>
+                    </div>
+                </div>
+                <button onclick="closeRosterModal()" class="text-slate-400 hover:text-slate-700 text-xl font-bold p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Body Container -->
+            <div class="flex-1 overflow-y-auto pr-1 space-y-4 text-xs">
+                <!-- Chọn Lớp & Toggle Bắt Buộc Danh Sách -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <div class="flex items-center gap-1.5">
+                            <label class="font-bold text-slate-700">Khóa:</label>
+                            <select id="roster-select-cohort" onchange="onRosterCohortChange()" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-cyan-500">
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <label class="font-bold text-slate-700">Lớp:</label>
+                            <select id="roster-select-class" onchange="loadCurrentRoster()" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-cyan-500">
+                            </select>
+                        </div>
+                        <span id="roster-student-count-badge" class="px-2.5 py-1 bg-cyan-100 text-cyan-800 font-bold rounded-lg border border-cyan-200">
+                            0 thí sinh
+                        </span>
+                    </div>
+
+                    <!-- Enforce switch -->
+                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                        <input type="checkbox" id="roster-chk-enforce" onchange="toggleRosterEnforce(this.checked)" class="w-4 h-4 rounded text-cyan-600 cursor-pointer">
+                        <label for="roster-chk-enforce" class="cursor-pointer font-bold text-slate-800 select-none">
+                            Bắt buộc có tên trong danh sách mới được thi
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Thao tác: Dán từ Excel / Thêm thủ công -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <!-- Form thêm 1 sinh viên -->
+                    <div class="md:col-span-7 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                        <div class="font-bold text-slate-700 mb-2 flex items-center gap-1">
+                            <i class="fa-solid fa-user-plus text-cyan-600"></i> Thêm thí sinh lẻ:
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="text" id="roster-input-sbd" placeholder="SBD (VD: SBD01)" class="px-2.5 py-1.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-cyan-500 font-medium">
+                            <input type="text" id="roster-input-sid" placeholder="MSSV (*)" class="px-2.5 py-1.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-cyan-500 font-medium">
+                            <input type="text" id="roster-input-sname" placeholder="Họ và tên (*)" class="px-2.5 py-1.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-cyan-500 font-medium">
+                        </div>
+                        <div class="mt-2 flex justify-end">
+                            <button onclick="submitAddStudentToRoster()" class="px-3 py-1.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-lg font-semibold flex items-center gap-1 shadow-2xs">
+                                <i class="fa-solid fa-plus"></i> Thêm vào danh sách
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nút công cụ Excel & Xóa nhanh -->
+                    <div class="md:col-span-5 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+                        <div class="font-bold text-slate-700 mb-2 flex items-center gap-1">
+                            <i class="fa-solid fa-file-excel text-emerald-600"></i> Dán từ danh sách Excel:
+                        </div>
+                        <p class="text-[11px] text-slate-500 mb-2">Sao chép cột từ Excel (STT, SBD, MSSV, Họ tên) rồi dán vào hệ thống chỉ trong 3 giây.</p>
+                        <div class="flex items-center gap-2">
+                            <button onclick="togglePasteExcelArea()" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-2xs">
+                                <i class="fa-solid fa-paste"></i> Nhập từ Excel
+                            </button>
+                            <button onclick="clearCurrentClassRoster()" class="px-3 py-1.5 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg font-semibold flex items-center gap-1" title="Xóa toàn bộ thí sinh của lớp hiện tại">
+                                <i class="fa-solid fa-trash-can"></i> Xóa hết
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Khu vực dán Excel (Mở rộng khi bấm) -->
+                <div id="roster-paste-excel-panel" class="hidden bg-emerald-50/70 p-4 rounded-xl border border-emerald-300 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-emerald-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-clipboard-list text-emerald-700"></i> Dán nội dung từ bảng Excel vào khung bên dưới:
+                        </span>
+                        <span class="text-[11px] text-slate-500">Định dạng hỗ trợ: STT | SBD | MSSV | Họ và tên (hoặc MSSV | Họ tên)</span>
+                    </div>
+                    <textarea id="roster-paste-textarea" rows="6" placeholder="Ví dụ dán trực tiếp các dòng từ Excel:&#10;1&#9;SBD01&#9;SV2026001&#9;Nguyễn Văn An&#10;2&#9;SBD02&#9;SV2026002&#9;Trần Thị Mai&#10;3&#9;SBD03&#9;SV2026003&#9;Lê Hoàng Phúc" class="w-full p-2.5 bg-white border border-emerald-300 rounded-lg font-mono text-xs outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <label class="text-[11px] text-slate-600 flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="roster-paste-overwrite" checked class="rounded text-emerald-600">
+                                <span>Ghi đè thay thế danh sách cũ của lớp này</span>
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="togglePasteExcelArea()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold">Hủy</button>
+                            <button onclick="processPasteExcel()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-check"></i> Phân Tích & Nạp Vào Lớp
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bảng danh sách thí sinh -->
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                    <div class="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+                        <span class="font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                            <i class="fa-solid fa-list-check text-cyan-600"></i> Thí Sinh Được Phép Dự Thi Lớp Này
+                        </span>
+                        <div class="relative w-64">
+                            <input type="text" id="roster-search-input" oninput="filterRosterTable()" placeholder="Tìm theo MSSV hoặc Họ tên..." class="w-full pl-8 pr-3 py-1 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-cyan-500">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-400"></i>
+                        </div>
+                    </div>
+
+                    <div class="max-h-72 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[10px] sticky top-0 border-b border-slate-200">
+                                <tr>
+                                    <th class="py-2.5 px-3 w-12 text-center">STT</th>
+                                    <th class="py-2.5 px-3 w-28">Số Báo Danh</th>
+                                    <th class="py-2.5 px-3 w-36">Mã Sinh Viên (MSSV)</th>
+                                    <th class="py-2.5 px-3">Họ và Tên Thí Sinh</th>
+                                    <th class="py-2.5 px-3 w-20 text-center">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roster-table-body" class="divide-y divide-slate-100">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="border-t pt-3 flex items-center justify-between">
+                <div class="text-[11px] text-slate-500">
+                    <i class="fa-solid fa-info-circle text-blue-500"></i> Dữ liệu danh sách lớp được lưu tự động trên hệ thống máy chủ và bảo lưu khi triển khai.
+                </div>
+                <button onclick="closeRosterModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition">
                     Đóng cửa sổ
                 </button>
             </div>
@@ -2662,6 +2822,307 @@
                 }
             } catch (err) {
                 alert('❌ Lỗi kết nối: ' + err.message);
+            }
+        }
+
+        // ================= QUẢN LÝ DANH SÁCH THÍ SINH LỚP (BẢO MẬT PHÒNG THI) =================
+        let currentRosterList = [];
+
+        function openRosterModal() {
+            if (!classesCatalog || Object.keys(classesCatalog).length === 0) {
+                alert('Chưa có danh mục Khóa và Lớp trong hệ thống! Vui lòng tạo Khóa/Lớp trước.');
+                return;
+            }
+
+            const cohortSel = document.getElementById('roster-select-cohort');
+            cohortSel.innerHTML = Object.keys(classesCatalog).map(c => `<option value="${c}">${c}</option>`).join('');
+
+            // Mặc định chọn theo bộ lọc đang xem nếu có
+            const filterCohort = document.getElementById('filter-cohort')?.value;
+            if (filterCohort && filterCohort !== 'ALL' && classesCatalog[filterCohort]) {
+                cohortSel.value = filterCohort;
+            }
+
+            onRosterCohortChange();
+
+            // Mặc định chọn lớp đang lọc nếu có
+            const filterClass = document.getElementById('filter-class')?.value;
+            const classSel = document.getElementById('roster-select-class');
+            if (filterClass && filterClass !== 'ALL') {
+                classSel.value = filterClass;
+            }
+
+            const modal = document.getElementById('roster-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            loadCurrentRoster();
+        }
+
+        function closeRosterModal() {
+            const modal = document.getElementById('roster-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function onRosterCohortChange() {
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const classSel = document.getElementById('roster-select-class');
+            const classes = classesCatalog[cohort] || [];
+            classSel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+            loadCurrentRoster();
+        }
+
+        async function loadCurrentRoster() {
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const className = document.getElementById('roster-select-class').value;
+
+            if (!cohort || !className) {
+                currentRosterList = [];
+                renderRosterTable([]);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/teacher/roster?cohort=${encodeURIComponent(cohort)}&class_name=${encodeURIComponent(className)}`);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    currentRosterList = data.students || [];
+                    const chkEnforce = document.getElementById('roster-chk-enforce');
+                    chkEnforce.checked = !!data.enforced;
+                    updateRosterBadge(data.enforced);
+                    document.getElementById('roster-student-count-badge').innerText = `${currentRosterList.length} thí sinh`;
+                    renderRosterTable(currentRosterList);
+                } else {
+                    console.error('Lỗi tải danh sách lớp:', data);
+                }
+            } catch (e) {
+                console.error('Lỗi kết nối tải roster:', e);
+            }
+        }
+
+        function updateRosterBadge(enforced) {
+            const badge = document.getElementById('roster-badge-enforce');
+            if (enforced) {
+                badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+                badge.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Đang Bật Bảo Mật (Chỉ trong DS mới được thi)';
+            } else {
+                badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
+                badge.innerHTML = '<i class="fa-solid fa-shield-slash"></i> Đang Tắt (Tự do)';
+            }
+        }
+
+        function renderRosterTable(students) {
+            const tbody = document.getElementById('roster-table-body');
+            if (!students || students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400 italic">Chưa có thí sinh nào trong danh sách lớp này.<br><span class="text-xs text-slate-500">Bấm <b>"Nhập từ Excel"</b> để dán danh sách lớp từ trường.</span></td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = students.map((s, idx) => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-2.5 px-3 text-center text-slate-500 font-mono">${idx + 1}</td>
+                    <td class="py-2.5 px-3 font-mono font-bold text-amber-700">${s.sbd || '--'}</td>
+                    <td class="py-2.5 px-3 font-mono font-semibold text-blue-700">${s.student_id}</td>
+                    <td class="py-2.5 px-3 font-medium text-slate-900">${s.student_name}</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <button onclick="handleDeleteStudentFromRoster('${encodeURIComponent(s.student_id)}', '${encodeURIComponent(s.student_name)}')" class="px-2 py-1 text-rose-600 hover:text-white hover:bg-rose-600 rounded text-xs transition" title="Xóa thí sinh này">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterRosterTable() {
+            const q = (document.getElementById('roster-search-input').value || '').trim().toLowerCase();
+            if (!q) {
+                renderRosterTable(currentRosterList);
+                return;
+            }
+            const filtered = currentRosterList.filter(s => 
+                (s.student_id && s.student_id.toLowerCase().includes(q)) ||
+                (s.student_name && s.student_name.toLowerCase().includes(q)) ||
+                (s.sbd && s.sbd.toLowerCase().includes(q))
+            );
+            renderRosterTable(filtered);
+        }
+
+        async function toggleRosterEnforce(enforced) {
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const className = document.getElementById('roster-select-class').value;
+
+            try {
+                const res = await fetch('/api/teacher/roster/set-enforce', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cohort, class_name: className, enforced })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    updateRosterBadge(enforced);
+                    if (enforced) {
+                        alert(`🔒 ĐÃ BẬT BẢO MẬT DANH SÁCH LỚP ${cohort} - ${className}:\nChỉ sinh viên có MSSV trong danh sách mới được phép vào thi. Sinh viên ngoài lớp sẽ bị hệ thống từ chối truy cập!`);
+                    } else {
+                        alert(`🔓 ĐÃ TẮT BẢO MẬT DANH SÁCH LỚP ${cohort} - ${className}:\nBất kỳ sinh viên nào có link đều có thể nhập tên và làm bài.`);
+                    }
+                }
+            } catch (e) {
+                alert('Lỗi cập nhật cấu hình bảo mật: ' + e.message);
+            }
+        }
+
+        async function submitAddStudentToRoster() {
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const className = document.getElementById('roster-select-class').value;
+            const sbd = document.getElementById('roster-input-sbd').value.trim();
+            const sid = document.getElementById('roster-input-sid').value.trim();
+            const sname = document.getElementById('roster-input-sname').value.trim();
+
+            if (!sid || !sname) {
+                alert('Vui lòng điền đủ Mã sinh viên (MSSV) và Họ và tên!');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/teacher/roster/add-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cohort, class_name: className, sbd: sbd || sid, student_id: sid, student_name: sname })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('roster-input-sbd').value = '';
+                    document.getElementById('roster-input-sid').value = '';
+                    document.getElementById('roster-input-sname').value = '';
+                    loadCurrentRoster();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể thêm thí sinh'));
+                }
+            } catch (e) {
+                alert('Lỗi kết nối: ' + e.message);
+            }
+        }
+
+        async function handleDeleteStudentFromRoster(sidEncoded, snameEncoded) {
+            const sid = decodeURIComponent(sidEncoded);
+            const sname = decodeURIComponent(snameEncoded);
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const className = document.getElementById('roster-select-class').value;
+
+            if (!confirm(`Bạn có chắc chắn muốn xóa thí sinh:\n"${sname}" (MSSV: ${sid})\nkhỏi danh sách lớp ${cohort} - ${className}?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/teacher/roster/delete-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cohort, class_name: className, student_id: sid })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    loadCurrentRoster();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể xóa thí sinh'));
+                }
+            } catch (e) {
+                alert('Lỗi kết nối: ' + e.message);
+            }
+        }
+
+        function togglePasteExcelArea() {
+            const panel = document.getElementById('roster-paste-excel-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        async function processPasteExcel() {
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const className = document.getElementById('roster-select-class').value;
+            const rawText = document.getElementById('roster-paste-textarea').value.trim();
+
+            if (!rawText) {
+                alert('Vui lòng dán các dòng dữ liệu từ Excel vào khung trước khi bấm Phân Tích!');
+                return;
+            }
+
+            try {
+                // 1. Phân tích văn bản thành danh sách thí sinh
+                const parseRes = await fetch('/api/teacher/roster/parse-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ raw_text: rawText })
+                });
+                const parseData = await parseRes.json();
+                if (parseData.status !== 'success' || !parseData.students || parseData.students.length === 0) {
+                    alert('❌ Không thể nhận diện dòng dữ liệu thí sinh hợp lệ. Vui lòng kiểm tra lại cấu trúc bảng đã dán!');
+                    return;
+                }
+
+                const overwrite = document.getElementById('roster-paste-overwrite').checked;
+                let finalStudents = [];
+
+                if (overwrite) {
+                    finalStudents = parseData.students;
+                } else {
+                    const existingMap = new Map();
+                    currentRosterList.forEach(s => existingMap.set(s.student_id.toUpperCase(), s));
+                    parseData.students.forEach(s => existingMap.set(s.student_id.toUpperCase(), s));
+                    finalStudents = Array.from(existingMap.values());
+                }
+
+                // 2. Lưu vào danh sách lớp
+                const saveRes = await fetch('/api/teacher/roster/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cohort: cohort,
+                        class_name: className,
+                        enforced: document.getElementById('roster-chk-enforce').checked,
+                        students: finalStudents
+                    })
+                });
+
+                const saveData = await saveRes.json();
+                if (saveData.status === 'success') {
+                    alert(`✅ ĐÃ NẠP THÀNH CÔNG ${parseData.students.length} THÍ SINH VÀO LỚP ${cohort} - ${className}!\nTổng số thí sinh hiện tại: ${finalStudents.length}`);
+                    document.getElementById('roster-paste-textarea').value = '';
+                    document.getElementById('roster-paste-excel-panel').classList.add('hidden');
+                    loadCurrentRoster();
+                } else {
+                    alert('Lỗi lưu danh sách: ' + (saveData.error || 'Lỗi không xác định'));
+                }
+            } catch (e) {
+                alert('Lỗi kết nối khi nạp Excel: ' + e.message);
+            }
+        }
+
+        async function clearCurrentClassRoster() {
+            const cohort = document.getElementById('roster-select-cohort').value;
+            const className = document.getElementById('roster-select-class').value;
+
+            if (!confirm(`⚠️ CẢNH BÁO NGUY HIỂM:\nBạn có chắc chắn muốn XÓA HẾT toàn bộ thí sinh trong danh sách của lớp "${cohort} - ${className}" không?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/teacher/roster/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cohort: cohort,
+                        class_name: className,
+                        enforced: false,
+                        students: []
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    loadCurrentRoster();
+                    alert(`✅ Đã làm sạch toàn bộ danh sách lớp ${cohort} - ${className}.`);
+                }
+            } catch (e) {
+                alert('Lỗi kết nối: ' + e.message);
             }
         }
 

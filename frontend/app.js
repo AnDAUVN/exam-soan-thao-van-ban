@@ -27,6 +27,124 @@ function onCohortChange() {
     const classSelect = document.getElementById('input-class');
     const classes = classesCatalog[selectedCohort] || [];
     classSelect.innerHTML = classes.map(cls => `<option value="${cls}">${cls}</option>`).join('');
+    onClassChange();
+}
+
+function onClassChange() {
+    const sid = (document.getElementById('input-student-id')?.value || '').trim();
+    if (sid) {
+        lookupStudentRoster(false);
+    }
+}
+
+let lookupDebounceTimer = null;
+function onStudentIdInput() {
+    if (lookupDebounceTimer) clearTimeout(lookupDebounceTimer);
+    lookupDebounceTimer = setTimeout(() => {
+        lookupStudentRoster(false);
+    }, 350);
+}
+
+let lastLookupResult = null;
+
+async function lookupStudentRoster(isBlur = false) {
+    const cohort = document.getElementById('input-cohort')?.value;
+    const className = document.getElementById('input-class')?.value;
+    const studentIdInput = document.getElementById('input-student-id');
+    const studentId = studentIdInput ? studentIdInput.value.trim() : '';
+    const nameInput = document.getElementById('input-student-name');
+    const sbdInput = document.getElementById('input-student-sbd');
+    const badgeEl = document.getElementById('roster-status-badge');
+    const spinnerEl = document.getElementById('roster-loading-spinner');
+    const submitBtn = document.getElementById('btn-submit-start-exam');
+
+    if (!cohort || !className || !studentId) {
+        if (badgeEl) badgeEl.innerHTML = '';
+        lastLookupResult = null;
+        if (nameInput) {
+            nameInput.readOnly = false;
+            nameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+        }
+        if (sbdInput) {
+            sbdInput.readOnly = false;
+            sbdInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        return;
+    }
+
+    if (spinnerEl) spinnerEl.classList.remove('hidden');
+
+    try {
+        const response = await fetch(`/api/exam/lookup-student?cohort=${encodeURIComponent(cohort)}&class_name=${encodeURIComponent(className)}&student_id=${encodeURIComponent(studentId)}`);
+        const data = await response.json();
+        lastLookupResult = data;
+
+        if (data.status === 'success') {
+            if (data.found) {
+                // Đã tìm thấy trong danh sách chính thức
+                if (nameInput) {
+                    nameInput.value = data.student_name;
+                    nameInput.readOnly = true;
+                    nameInput.classList.add('bg-slate-100', 'cursor-not-allowed');
+                }
+                if (sbdInput) {
+                    sbdInput.value = data.sbd || data.student_id;
+                    sbdInput.readOnly = true;
+                    sbdInput.classList.add('bg-slate-100', 'cursor-not-allowed');
+                }
+                if (badgeEl) {
+                    badgeEl.innerHTML = `<span class="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md text-xs font-semibold animate-fadeIn"><i class="fa-solid fa-circle-check text-emerald-600"></i> Đã xác thực danh sách lớp: <b>${data.student_name}</b> (${data.sbd || ''})</span>`;
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            } else {
+                // Không có trong danh sách
+                if (data.enforced) {
+                    if (badgeEl) {
+                        badgeEl.innerHTML = `<span class="inline-flex items-center gap-1.5 text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-md text-xs font-semibold"><i class="fa-solid fa-ban text-rose-600"></i> MSSV '<b>${studentId}</b>' KHÔNG CÓ TRONG DANH SÁCH lớp '${className}'. Bạn không có quyền truy cập phòng thi!</span>`;
+                    }
+                    if (nameInput) {
+                        nameInput.readOnly = false;
+                        nameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+                    }
+                    if (sbdInput) {
+                        sbdInput.readOnly = false;
+                        sbdInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                } else {
+                    if (badgeEl) {
+                        badgeEl.innerHTML = `<span class="inline-flex items-center gap-1.5 text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[11px]"><i class="fa-solid fa-circle-info text-blue-500"></i> Lớp chưa khóa danh sách (Tự do nhập SBD và Họ tên).</span>`;
+                    }
+                    if (nameInput) {
+                        nameInput.readOnly = false;
+                        nameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+                    }
+                    if (sbdInput) {
+                        sbdInput.readOnly = false;
+                        sbdInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi tra cứu danh sách thí sinh:', e);
+    } finally {
+        if (spinnerEl) spinnerEl.classList.add('hidden');
+    }
 }
 
 // Gọi tải danh mục ngay khi khởi động
@@ -71,6 +189,12 @@ document.getElementById('start-exam-form').addEventListener('submit', async (e) 
     const cohort = document.getElementById('input-cohort').value;
     const className = document.getElementById('input-class').value;
     const duration = parseInt(document.getElementById('input-duration').value);
+
+    // Chặn trước ở client nếu lớp bật bảo mật danh sách mà MSSV không hợp lệ
+    if (lastLookupResult && lastLookupResult.enforced && !lastLookupResult.found) {
+        alert(`⛔ TỪ CHỐI TRUY CẬP PHÒNG THI:\nMã sinh viên '${studentId}' KHÔNG CÓ TRONG DANH SÁCH chính thức của lớp ${cohort} - ${className}!\nChỉ sinh viên có tên trong danh sách được giảng viên phê duyệt mới được cấp đề thi.`);
+        return;
+    }
 
     const deviceId = getOrCreateDeviceId();
     const deviceInfo = getDeviceInfo();
