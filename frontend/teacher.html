@@ -1682,14 +1682,20 @@
                     </p>
                 </div>
 
-                <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
-                    <div class="font-bold flex items-center gap-1.5 text-blue-900">
-                        <i class="fa-solid fa-key text-blue-600"></i> Mật khẩu mặc định hệ thống:
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1.5">
+                    <div class="font-bold flex items-center justify-between text-blue-900">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-key text-blue-600"></i> Mật khẩu mặc định hệ thống:</span>
+                        <span class="text-[10px] text-blue-600 font-normal italic">(Không phân biệt hoa/thường)</span>
                     </div>
-                    <div class="font-mono font-bold text-blue-700 bg-white px-2 py-1 rounded border border-blue-200 inline-block">
-                        GiaoVien@2026
+                    <div>
+                        <button type="button" onclick="fillDefaultTeacherPwd()" class="font-mono font-bold text-blue-700 bg-white hover:bg-blue-100 hover:text-blue-900 px-3 py-1.5 rounded-lg border border-blue-300 inline-flex items-center gap-2 transition cursor-pointer shadow-xs active:scale-95" title="Bấm vào đây để tự động điền mật khẩu">
+                            <span>GiaoVien@2026</span>
+                            <span class="text-[11px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 flex items-center gap-1">
+                                <i class="fa-solid fa-arrow-turn-down text-[10px]"></i> Bấm để điền
+                            </span>
+                        </button>
                     </div>
-                    <p class="text-[11px] text-slate-500 italic mt-0.5">Thầy/Cô có thể đổi mật khẩu bất kỳ lúc nào sau khi đăng nhập.</p>
+                    <p class="text-[11px] text-slate-500 italic">Thầy/Cô có thể đổi mật khẩu bất kỳ lúc nào sau khi đăng nhập.</p>
                 </div>
 
                 <button type="submit" id="btn-submit-teacher-login" class="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-500/25 transition flex items-center justify-center gap-2">
@@ -1793,6 +1799,16 @@
             } else {
                 input.type = 'password';
                 btn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+            }
+        }
+
+        function fillDefaultTeacherPwd() {
+            const input = document.getElementById('teacher-pwd-input');
+            const errEl = document.getElementById('teacher-login-err');
+            if (errEl) errEl.classList.add('hidden');
+            if (input) {
+                input.value = 'GiaoVien@2026';
+                input.focus();
             }
         }
 

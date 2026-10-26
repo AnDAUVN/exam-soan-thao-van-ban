@@ -39,7 +39,14 @@ class TeacherAuthService:
     @staticmethod
     def verify_password(password: str) -> bool:
         data = load_teacher_auth()
-        return str(password).strip() == str(data.get("password", DEFAULT_TEACHER_PASSWORD)).strip()
+        stored_pwd = str(data.get("password", DEFAULT_TEACHER_PASSWORD)).strip()
+        input_pwd = str(password).strip()
+        if input_pwd == stored_pwd:
+            return True
+        # Chấp nhận không phân biệt chữ hoa/chữ thường (ví dụ: Giaovien@2026 và GiaoVien@2026)
+        if input_pwd.lower() == stored_pwd.lower():
+            return True
+        return False
 
     @staticmethod
     def login(password: str) -> Tuple[bool, str]:
