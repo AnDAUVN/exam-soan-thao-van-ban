@@ -107,13 +107,18 @@ class DocxNghiDinh30Grader:
                     mins = int(total_time.text)
                     forensics["total_time_mins"] = mins
 
-                    # Phân tích hành vi thời gian gõ:
+                    # Phân tích hành vi thời gian gõ văn bản thực tế:
                     if mins < 3:
                         forensics["flags"].append(f"🔴 LỖI: Nghi vấn Copy bài làm sẵn (Thời gian gõ bài chỉ {mins} phút)")
-                        forensics["violations"].append(f"Copy bài ({mins}p)")
+                        forensics["violations"].append(f"Copy bài sẵn ({mins}p)")
                         forensics["status"] = "FLAGGED"
+                    elif mins < 6:
+                        forensics["flags"].append(f"⚠️ CẢNH BÁO: Tốc độ hoàn thành bất thường ({mins} phút cho văn bản đầy đủ)")
+                        forensics["violations"].append(f"Gõ quá nhanh ({mins}p)")
+                        if forensics["status"] != "FLAGGED":
+                            forensics["status"] = "WARNING"
                     else:
-                        forensics["flags"].append(f"✅ Thời gian thực hiện hợp lý: {mins} phút gõ văn bản")
+                        forensics["flags"].append(f"✅ Thời gian thực hiện hợp lý: {mins} phút gõ văn bản thực tế")
             except Exception:
                 pass
 

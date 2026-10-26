@@ -182,6 +182,29 @@
             <!-- Content Area (Right 3 cols) -->
             <div class="lg:col-span-3">
                 
+                <!-- Thanh trạng thái 2 giai đoạn thi (Chống gian lận thông minh) -->
+                <div id="phase-status-banner" class="bg-amber-50 border border-amber-300 rounded-xl p-3.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium transition-all shadow-xs">
+                    <div class="flex items-center gap-3">
+                        <span id="phase-status-icon" class="w-8 h-8 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center font-bold text-sm shrink-0">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span id="phase-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-300">Giai đoạn 1</span>
+                                <span id="phase-status-title" class="font-bold text-slate-900 text-sm">Đang làm Trắc nghiệm (Giám sát màn hình BẬT)</span>
+                            </div>
+                            <p id="phase-status-desc" class="text-slate-600 text-[11px] mt-0.5">
+                                ⚠️ Vui lòng <b>không chuyển tab</b> hoặc mở ứng dụng khác khi đang làm trắc nghiệm.
+                            </p>
+                        </div>
+                    </div>
+                    <div id="phase-status-action" class="shrink-0 flex items-center gap-2">
+                        <button type="button" id="btn-switch-to-word" onclick="transitionToWordPhase()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-sm transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-word"></i> Sang Thực hành Word <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- TAB 1: TRẮC NGHIỆM -->
                 <div id="content-quiz" class="space-y-4">
                     <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">

@@ -83,6 +83,15 @@ class RetakeExamRequest(BaseModel):
     mode: Optional[str] = "resume"
     extra_minutes: Optional[int] = 15
 
+class ReportViolationRequest(BaseModel):
+    student_id: str
+    violation_type: str = "TAB_SWITCH"
+    detail: str = ""
+
+class PhaseTransitionRequest(BaseModel):
+    student_id: str
+    phase: str = "WORD"
+
 class ExamConfigRequest(BaseModel):
     mcq_count: int = 10
 
@@ -237,11 +246,46 @@ def get_session(student_id: str, device_id: Optional[str] = Query(None)):
         "termination_reason": session.get("termination_reason", ""),
         "is_device_mismatch": is_device_mismatch,
         "device_info": session.get("device_info", ""),
+        "current_phase": session.get("current_phase", "QUIZ"),
         "extra_minutes_added": session.get("extra_minutes_added", 0),
         "duration_minutes": session.get("duration_minutes", 60),
         "quiz_score": session.get("quiz_score", 0.0),
         "word_scores": session.get("word_scores", {})
     }
+
+@app.post("/api/exam/report-violation")
+def report_violation(req: ReportViolationRequest):
+    session = ACTIVE_SESSIONS.get(req.student_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+    
+    violations = session.setdefault("anti_cheat_violations", [])
+    violations.append({
+        "time": time.strftime("%H:%M:%S"),
+        "type": req.violation_type,
+        "detail": req.detail
+    })
+    
+    tab_violations = [v for v in violations if v.get("type") == "TAB_SWITCH"]
+    if len(tab_violations) >= 3:
+        session["anti_cheat_overall"] = "CHEATING"
+        session["anti_cheat_summary"] = f"CẢNH BÁO: Rời màn hình {len(tab_violations)} lần khi làm trắc nghiệm!"
+    elif len(tab_violations) >= 1:
+        if session.get("anti_cheat_overall") != "CHEATING":
+            session["anti_cheat_overall"] = "WARNING"
+            session["anti_cheat_summary"] = f"Cảnh báo: Rời màn hình {len(tab_violations)} lần"
+            
+    return {"status": "success", "violations_count": len(violations)}
+
+@app.post("/api/exam/set-phase")
+def set_phase(req: PhaseTransitionRequest):
+    session = ACTIVE_SESSIONS.get(req.student_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+    session["current_phase"] = req.phase
+    if req.phase == "WORD":
+        session["word_started_at"] = time.strftime("%H:%M:%S")
+    return {"status": "success", "phase": req.phase}
 
 @app.post("/api/exam/submit-quiz")
 def submit_quiz(req: SubmitQuizRequest):
@@ -335,6 +379,7 @@ def get_teacher_students(
             "anti_cheat_summary": s_data.get("anti_cheat_summary", "Hợp lệ"),
             "device_info": s_data.get("device_info", "Chưa xác định"),
             "device_first_login": s_data.get("device_first_login", ""),
+            "current_phase": s_data.get("current_phase", "QUIZ"),
             "exam_token": s_data.get("exam_token", ""),
             "case_1": {
                 "title": c1_meta.get("title", "Văn bản 1"),

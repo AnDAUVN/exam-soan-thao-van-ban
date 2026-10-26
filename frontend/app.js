@@ -334,6 +334,137 @@ function renderPracticeCases(cases) {
     }
 }
 
+// ================= CHỐNG GIAN LẬN: 2 GIAI ĐOẠN THI (GIẢI PHÁP 1) =================
+let currentExamPhase = "QUIZ"; // "QUIZ" (Đang làm trắc nghiệm) hoặc "WORD" (Đang thực hành Word)
+let tabSwitchCount = 0;
+let lastBlurTime = 0;
+
+function updatePhaseUI() {
+    const banner = document.getElementById('phase-status-banner');
+    const icon = document.getElementById('phase-status-icon');
+    const badge = document.getElementById('phase-status-badge');
+    const title = document.getElementById('phase-status-title');
+    const desc = document.getElementById('phase-status-desc');
+    const action = document.getElementById('phase-status-action');
+
+    if (!banner) return;
+
+    if (currentExamPhase === "QUIZ") {
+        banner.className = "bg-amber-50 border border-amber-300 rounded-xl p-3.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium transition-all shadow-xs";
+        if (icon) {
+            icon.className = "w-8 h-8 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center font-bold text-sm shrink-0";
+            icon.innerHTML = '<i class="fa-solid fa-shield-halved"></i>';
+        }
+        if (badge) {
+            badge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-300";
+            badge.innerText = "Giai đoạn 1";
+        }
+        if (title) title.innerText = "Đang làm bài Trắc nghiệm (Giám sát màn hình BẬT)";
+        if (desc) desc.innerHTML = `⚠️ Vui lòng <b>không chuyển tab</b> hoặc mở ứng dụng khác khi đang làm trắc nghiệm. (${tabSwitchCount > 0 ? `Đã cảnh báo: ${tabSwitchCount}/3 lần` : 'Chưa có vi phạm'})`;
+        if (action) {
+            action.innerHTML = `
+                <button type="button" onclick="transitionToWordPhase()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-sm transition flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-file-word"></i> Sang Thực hành Word <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </button>
+            `;
+        }
+    } else {
+        banner.className = "bg-emerald-50 border border-emerald-300 rounded-xl p-3.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium transition-all shadow-xs";
+        if (icon) {
+            icon.className = "w-8 h-8 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center font-bold text-sm shrink-0";
+            icon.innerHTML = '<i class="fa-solid fa-check-circle"></i>';
+        }
+        if (badge) {
+            badge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-200 text-emerald-950 border border-emerald-300";
+            badge.innerText = "Giai đoạn 2";
+        }
+        if (title) title.innerText = "Đang làm Thực hành Soạn thảo Word";
+        if (desc) desc.innerHTML = '✅ <b>Đã tạm ngưng cảnh báo chuyển tab</b>. Bạn có thể mở Microsoft Word trên máy tính để làm bài theo Nghị định 30.';
+        if (action) {
+            action.innerHTML = `
+                <button type="button" onclick="transitionToQuizPhase()" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold text-xs transition flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-list-check text-blue-600"></i> Xem lại Trắc nghiệm
+                </button>
+            `;
+        }
+    }
+}
+
+async function transitionToWordPhase(notify = true) {
+    if (currentExamPhase === "WORD") return;
+    currentExamPhase = "WORD";
+    updatePhaseUI();
+    if (notify) {
+        alert("✅ BẠN ĐÃ CHUYỂN SANG PHẦN THỰC HÀNH SOẠN THẢO WORD:\n\nChế độ giám sát chuyển tab đã được TẠM NGƯNG để bạn có thể mở Microsoft Word trên máy tính soạn thảo theo Nghị định 30.\n\nLưu ý: Hệ thống sẽ tự động giám định tính toàn vẹn (thời gian soạn thảo, mã phôi ẩn, số lần lưu) khi bạn nộp file Word.");
+    }
+    if (examData && examData.student_id) {
+        try {
+            await fetch('/api/exam/set-phase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: examData.student_id, phase: 'WORD' })
+            });
+        } catch (e) {}
+    }
+}
+
+async function transitionToQuizPhase() {
+    currentExamPhase = "QUIZ";
+    updatePhaseUI();
+    switchTab('quiz');
+}
+
+// Bắt sự kiện chuyển tab / thu nhỏ trình duyệt khi đang ở GIAI ĐOẠN TRẮC NGHIỆM
+window.addEventListener('blur', () => {
+    if (!examData || examData.is_submitted) return;
+    if (currentExamPhase === "QUIZ") {
+        lastBlurTime = Date.now();
+    }
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (!examData || examData.is_submitted) return;
+    if (document.hidden) {
+        if (currentExamPhase === "QUIZ") {
+            lastBlurTime = Date.now();
+        }
+    } else {
+        if (currentExamPhase === "QUIZ" && lastBlurTime > 0) {
+            const awaySeconds = Math.round((Date.now() - lastBlurTime) / 1000);
+            lastBlurTime = 0;
+            if (awaySeconds >= 1) {
+                tabSwitchCount++;
+                updatePhaseUI();
+                reportTabViolation(tabSwitchCount, awaySeconds);
+            }
+        }
+    }
+});
+
+async function reportTabViolation(count, awaySeconds) {
+    if (count === 1) {
+        alert(`⚠️ CẢNH BÁO RỜI MÀN HÌNH THI (Lần 1/3):\n\nBạn vừa chuyển tab hoặc rời màn hình thi (${awaySeconds} giây) khi đang làm Trắc nghiệm!\nHành vi này đã được gửi về Giám thị phòng thi.\n\nVui lòng tập trung làm bài, rời quá 3 lần sẽ bị đánh dấu gian lận!`);
+    } else if (count === 2) {
+        alert(`⚠️ CẢNH BÁO RỜI MÀN HÌNH THI (Lần 2/3):\n\nBạn tiếp tục rời màn hình thi (${awaySeconds} giây).\nNếu rời thêm 1 lần nữa, bài thi của bạn sẽ bị bật cờ đỏ GIAN LẬN!`);
+    } else {
+        alert(`⛔ CẢNH BÁO VI PHẠM QUY CHẾ THI (Lần ${count}):\n\nBạn đã rời màn hình quá 3 lần khi đang làm Trắc nghiệm!\nHệ thống đã BẬT CỜ ĐỎ GIAN LẬN trên máy Giám thị và ghi vào biên bản thi.`);
+    }
+
+    if (examData && examData.student_id) {
+        try {
+            await fetch('/api/exam/report-violation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_id: examData.student_id,
+                    violation_type: 'TAB_SWITCH',
+                    detail: `Rời màn hình khi làm trắc nghiệm (Lần ${count}, vắng ${awaySeconds}s)`
+                })
+            });
+        } catch (e) {}
+    }
+}
+
 // 6. CHUYỂN TAB LÀM BÀI
 function switchTab(tab) {
     const tabs = ['quiz', 'case1', 'case2'];
@@ -348,6 +479,11 @@ function switchTab(tab) {
     const activeBtn = document.getElementById(`nav-tab-${tab}`);
     activeBtn.classList.add('bg-blue-50', 'text-blue-700', 'font-semibold', 'border-l-4', 'border-blue-600');
     activeBtn.classList.remove('text-slate-600');
+
+    // Tự động chuyển sang giai đoạn Word nếu sinh viên chủ động bấm vào tab thực hành văn bản
+    if ((tab === 'case1' || tab === 'case2') && currentExamPhase === 'QUIZ') {
+        transitionToWordPhase(false);
+    }
 }
 
 // 7. NỘP TRẮC NGHIỆM ĐỘC LẬP
@@ -365,6 +501,9 @@ async function submitQuizAnswers() {
         const res = await response.json();
         if (res.status === 'success') {
             alert(`Đã lưu kết quả trắc nghiệm!\nĐúng: ${res.results.correct_count}/${res.results.total_questions} câu\nĐiểm: ${res.results.score} điểm.`);
+            // Sau khi nộp trắc nghiệm, tự động kích hoạt giai đoạn làm Word
+            transitionToWordPhase(true);
+            switchTab('case1');
         }
     } catch (err) {
         alert('Lỗi lưu trắc nghiệm: ' + err.message);

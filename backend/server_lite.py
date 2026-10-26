@@ -145,6 +145,7 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                 "termination_reason": session.get("termination_reason", ""),
                 "is_device_mismatch": is_device_mismatch,
                 "device_info": session.get("device_info", ""),
+                "current_phase": session.get("current_phase", "QUIZ"),
                 "extra_minutes_added": session.get("extra_minutes_added", 0),
                 "duration_minutes": session.get("duration_minutes", 60),
                 "quiz_score": session.get("quiz_score", 0.0),
@@ -243,6 +244,7 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                     "anti_cheat_summary": s_data.get("anti_cheat_summary", "Hợp lệ"),
                     "device_info": s_data.get("device_info", "Chưa xác định"),
                     "device_first_login": s_data.get("device_first_login", ""),
+                    "current_phase": s_data.get("current_phase", "QUIZ"),
                     "exam_token": s_data.get("exam_token", ""),
                     "case_1": {
                         "title": c1_meta.get("title", "Văn bản 1"),
@@ -514,6 +516,51 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             )
 
             self.send_json({"status": "success", "grade": grade_res})
+
+        # BÁO CÁO VI PHẠM RỜI MÀN HÌNH (GIAI ĐOẠN TRẮC NGHIỆM)
+        elif path == "/api/exam/report-violation":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            student_id = str(body.get("student_id") or "").strip()
+            session = ACTIVE_SESSIONS.get(student_id)
+            if not session:
+                self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
+                return
+
+            violations = session.setdefault("anti_cheat_violations", [])
+            violations.append({
+                "time": time.strftime("%H:%M:%S"),
+                "type": body.get("violation_type", "TAB_SWITCH"),
+                "detail": body.get("detail", "Rời màn hình khi làm trắc nghiệm")
+            })
+
+            tab_v = [v for v in violations if v.get("type") == "TAB_SWITCH"]
+            if len(tab_v) >= 3:
+                session["anti_cheat_overall"] = "CHEATING"
+                session["anti_cheat_summary"] = f"CẢNH BÁO: Rời màn hình {len(tab_v)} lần khi làm trắc nghiệm!"
+            elif len(tab_v) >= 1:
+                if session.get("anti_cheat_overall") != "CHEATING":
+                    session["anti_cheat_overall"] = "WARNING"
+                    session["anti_cheat_summary"] = f"Cảnh báo: Rời màn hình {len(tab_v)} lần"
+
+            self.send_json({"status": "success", "violations_count": len(violations)})
+
+        # CHUYỂN ĐỔI GIAI ĐOẠN THI (TRẮC NGHIỆM SANG WORD)
+        elif path == "/api/exam/set-phase":
+            length = int(self.headers.get('Content-Length', 0))
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+            student_id = str(body.get("student_id") or "").strip()
+            phase = str(body.get("phase") or "WORD").strip()
+            session = ACTIVE_SESSIONS.get(student_id)
+            if not session:
+                self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
+                return
+
+            session["current_phase"] = phase
+            if phase == "WORD":
+                session["word_started_at"] = time.strftime("%H:%M:%S")
+
+            self.send_json({"status": "success", "phase": phase})
 
         elif path == "/api/teacher/grade-content":
             length = int(self.headers.get('Content-Length', 0))

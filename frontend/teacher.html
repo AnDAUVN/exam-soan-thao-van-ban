@@ -1612,7 +1612,13 @@
                     <td class="p-3.5 font-mono font-bold text-blue-700">${s.student_id}</td>
                     <td class="p-3.5 font-bold text-slate-900">
                         <div>${s.student_name}</div>
-                        ${s.device_info ? `<div class="text-[10px] text-slate-500 font-normal flex items-center gap-1 mt-0.5" title="Thiết bị: ${s.device_info} (Lúc ${s.device_first_login || 'bắt đầu'})"><i class="fa-solid fa-laptop text-[9px] text-blue-600"></i> ${s.device_info}</div>` : ''}
+                        <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            ${s.current_phase === 'WORD' ? 
+                                '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-file-word"></i> Đang gõ Word</span>' :
+                                '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><i class="fa-solid fa-list-check"></i> Đang làm Trắc nghiệm</span>'
+                            }
+                            ${s.device_info ? `<span class="text-[10px] text-slate-500 font-normal flex items-center gap-1" title="Thiết bị: ${s.device_info} (Lúc ${s.device_first_login || 'bắt đầu'})"><i class="fa-solid fa-laptop text-[9px] text-blue-600"></i> ${s.device_info}</span>` : ''}
+                        </div>
                     </td>
                     <td class="p-3.5 text-slate-600">
                         <span class="font-bold text-slate-800">${s.cohort}</span><br>
