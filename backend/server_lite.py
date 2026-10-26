@@ -13,9 +13,10 @@ import socket
 import time
 import urllib.parse
 from urllib.parse import urlparse, parse_qs
-from exam_engine import ExamEngine, ACTIVE_SESSIONS, COHORTS_AND_CLASSES
+from exam_engine import ExamEngine, ACTIVE_SESSIONS, COHORTS_AND_CLASSES, save_active_sessions_backup
 from gdrive_service import GDriveService
 from grading_service import GradingService
+from teacher_auth import TeacherAuthService
 
 PORT = int(os.environ.get("PORT", 8000))
 BASE_DIR = os.path.dirname(__file__)
@@ -70,17 +71,58 @@ def get_primary_lan_ip():
     return ips[0] if ips else "127.0.0.1"
 
 class ExamHandler(http.server.SimpleHTTPRequestHandler):
+    def get_cookie(self, name):
+        cookie_header = self.headers.get('Cookie', '')
+        if not cookie_header:
+            return None
+        from http import cookies
+        c = cookies.SimpleCookie()
+        try:
+            c.load(cookie_header)
+            if name in c:
+                return c[name].value
+        except Exception:
+            pass
+        return None
+
+    def get_teacher_token(self):
+        token = self.headers.get("X-Teacher-Token")
+        if not token:
+            token = self.get_cookie("teacher_token")
+        if not token:
+            parsed = urlparse(self.path)
+            q = parse_qs(parsed.query)
+            token = q.get("token", [None])[0]
+        return token
+
+    def is_authenticated_teacher(self):
+        token = self.get_teacher_token()
+        return TeacherAuthService.is_valid_token(token)
+
+    def send_unauthorized(self, detail="Yêu cầu đăng nhập Giảng viên!"):
+        self.send_json({"status": "error", "code": "UNAUTHORIZED", "detail": detail}, 401)
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Exam-Token, X-Teacher-Token")
         self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
+        query_params = query
+
+        # 0. BẢO MẬT CỔNG GIẢNG VIÊN (TEACHER AUTH)
+        if path == "/api/teacher/verify-auth":
+            self.send_json({"status": "success", "authenticated": self.is_authenticated_teacher()})
+            return
+
+        if path.startswith("/api/teacher") and not self.is_authenticated_teacher():
+            self.send_unauthorized()
+            return
 
         # 1. GIAO DIỆN WEB
         if path == "/" or path == "/index.html":
@@ -130,6 +172,11 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             if len(parts) >= 6:
                 student_id = parts[4]
                 case_index = int(parts[5])
+                tok = query.get("token", [""])[0] or self.headers.get("X-Exam-Token", "")
+                valid, err = ExamEngine.verify_student_token(student_id, tok)
+                if not valid:
+                    self.send_json({"status": "error", "detail": err}, 403)
+                    return
                 docx_path = ExamEngine.create_official_docx_template(student_id, case_index)
                 if os.path.exists(docx_path):
                     self.serve_file(
@@ -180,11 +227,17 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
         # 4. BÁO CÁO KẾT QUẢ SINH VIÊN
         elif path.startswith("/api/exam/final-report/"):
             student_id = path.split("/")[-1]
+            tok = query.get("token", [""])[0] or self.headers.get("X-Exam-Token", "")
+            valid, err = ExamEngine.verify_student_token(student_id, tok)
+            if not valid:
+                self.send_json({"status": "error", "detail": err}, 403)
+                return
             session = ACTIVE_SESSIONS.get(student_id)
             if not session:
                 self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
                 return
             session["is_submitted"] = True
+            save_active_sessions_backup()
             quiz = session.get("quiz_results", {})
             words = session.get("word_scores", {})
             quiz_pt = quiz.get("score", 0.0)
@@ -457,7 +510,60 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             if "error" in exam_data:
                 self.send_json({"status": "error", "detail": exam_data["error"]}, 400)
             else:
+                save_active_sessions_backup()
                 self.send_json({"status": "success", "data": exam_data})
+
+        # TEACHER AUTHENTICATION ENDPOINTS
+        elif path == "/api/teacher/login":
+            length = int(self.headers.get('Content-Length', 0))
+            raw_body = self.rfile.read(length).decode('utf-8') if length > 0 else "{}"
+            body = json.loads(raw_body)
+            pwd = body.get("password", "")
+            ok, tok_or_err = TeacherAuthService.login(pwd)
+            if not ok:
+                self.send_json({"status": "error", "detail": tok_or_err}, 401)
+                return
+            cookie_val = f"teacher_token={tok_or_err}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800"
+            resp_body = json.dumps({"status": "success", "token": tok_or_err}, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Set-Cookie", cookie_val)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
+        elif path == "/api/teacher/logout":
+            tok = self.get_teacher_token()
+            TeacherAuthService.logout(tok)
+            cookie_val = "teacher_token=; Path=/; Max-Age=0"
+            resp_body = json.dumps({"status": "success", "message": "Đã đăng xuất cổng Giảng viên thành công!"}, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Set-Cookie", cookie_val)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
+        elif path == "/api/teacher/change-password":
+            if not self.is_authenticated_teacher():
+                self.send_unauthorized()
+                return
+            length = int(self.headers.get('Content-Length', 0))
+            raw_body = self.rfile.read(length).decode('utf-8') if length > 0 else "{}"
+            body = json.loads(raw_body)
+            old_p = body.get("old_password", "")
+            new_p = body.get("new_password", "")
+            ok, msg = TeacherAuthService.change_password(old_p, new_p)
+            if not ok:
+                self.send_json({"status": "error", "detail": msg}, 400)
+                return
+            self.send_json({"status": "success", "message": msg})
+
+        # BẢO MẬT TẤT CẢ CÁC API THAO TÁC CỦA GIẢNG VIÊN
+        elif path.startswith("/api/teacher") and not self.is_authenticated_teacher():
+            self.send_unauthorized()
 
         # 2. QUẢN LÝ KHÓA / LỚP (THÊM, SỬA, XÓA)
         elif path == "/api/teacher/classes":
@@ -524,39 +630,74 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/exam/submit-quiz":
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length).decode('utf-8'))
-            res = ExamEngine.submit_quiz(body.get("student_id"), body.get("answers", {}))
+            student_id = str(body.get("student_id") or "").strip()
+            tok = body.get("token") or self.headers.get("X-Exam-Token", "")
+            valid, err = ExamEngine.verify_student_token(student_id, tok)
+            if not valid:
+                self.send_json({"status": "error", "detail": err}, 403)
+                return
+            res = ExamEngine.submit_quiz(student_id, body.get("answers", {}))
+            save_active_sessions_backup()
             self.send_json({"status": "success", "results": res})
 
         elif path == "/api/exam/upload-docx":
-            boundary = content_type.split("boundary=")[-1].encode('utf-8')
+            boundary = None
+            for param in content_type.split(';'):
+                param = param.strip()
+                if param.lower().startswith('boundary='):
+                    boundary = param[len('boundary='):].strip().strip('"').encode('utf-8')
+                    break
+            if not boundary:
+                boundary = content_type.split("boundary=")[-1].strip().strip('"').encode('utf-8')
+
             length = int(self.headers.get('Content-Length', 0))
             raw_data = self.rfile.read(length)
 
             parts = raw_data.split(b"--" + boundary)
             fields = {}
             file_bytes = None
-            filename = "submitted.docx"
+            orig_filename = "submitted.docx"
 
             for part in parts:
                 if b'name="student_id"' in part:
-                    fields["student_id"] = part.split(b"\r\n\r\n")[1].split(b"\r\n")[0].decode('utf-8')
+                    fields["student_id"] = part.split(b"\r\n\r\n")[1].split(b"\r\n")[0].decode('utf-8').strip()
                 elif b'name="case_index"' in part:
-                    fields["case_index"] = int(part.split(b"\r\n\r\n")[1].split(b"\r\n")[0].decode('utf-8'))
+                    fields["case_index"] = int(part.split(b"\r\n\r\n")[1].split(b"\r\n")[0].decode('utf-8').strip())
+                elif b'name="token"' in part:
+                    fields["token"] = part.split(b"\r\n\r\n")[1].split(b"\r\n")[0].decode('utf-8').strip()
                 elif b'name="file"' in part:
+                    m = re.search(rb'filename="([^"]+)"', part)
+                    if m:
+                        try:
+                            orig_filename = m.group(1).decode('utf-8')
+                        except Exception:
+                            pass
                     header, file_content = part.split(b"\r\n\r\n", 1)
                     file_bytes = file_content.rstrip(b"\r\n")
 
             student_id = fields.get("student_id", "unknown")
+            tok = fields.get("token") or self.headers.get("X-Exam-Token", "")
+            valid, err = ExamEngine.verify_student_token(student_id, tok)
+            if not valid:
+                self.send_json({"status": "error", "detail": err}, 403)
+                return
+
+            if file_bytes and len(file_bytes) > 15 * 1024 * 1024:
+                self.send_json({"status": "error", "detail": "Dung lượng file vượt quá giới hạn tối đa 15MB!"}, 400)
+                return
+
             case_index = fields.get("case_index", 1)
+            clean_filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', os.path.basename(orig_filename))
             target_dir = os.path.join(UPLOAD_DIR, student_id)
             os.makedirs(target_dir, exist_ok=True)
-            save_path = os.path.join(target_dir, f"Case_{case_index}_{filename}")
+            save_path = os.path.join(target_dir, f"Case_{case_index}_{clean_filename}")
 
             if file_bytes:
                 with open(save_path, "wb") as f:
                     f.write(file_bytes)
 
             grade_res = ExamEngine.grade_practice_file(student_id, save_path, case_index)
+            save_active_sessions_backup()
 
             # TỰ ĐỘNG ĐỒNG BỘ LÊN GOOGLE DRIVE THEO LỚP (cttrung@ntt.edu.vn)
             session = ACTIVE_SESSIONS.get(student_id, {})
@@ -580,6 +721,12 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length).decode('utf-8'))
             student_id = str(body.get("student_id") or "").strip()
+            tok = body.get("token") or self.headers.get("X-Exam-Token", "")
+            valid, err = ExamEngine.verify_student_token(student_id, tok)
+            if not valid:
+                self.send_json({"status": "error", "detail": err}, 403)
+                return
+
             session = ACTIVE_SESSIONS.get(student_id)
             if not session:
                 self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
@@ -601,6 +748,7 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                     session["anti_cheat_overall"] = "WARNING"
                     session["anti_cheat_summary"] = f"Cảnh báo: Rời màn hình {len(tab_v)} lần"
 
+            save_active_sessions_backup()
             self.send_json({"status": "success", "violations_count": len(violations)})
 
         # CHUYỂN ĐỔI GIAI ĐOẠN THI (TRẮC NGHIỆM SANG WORD)
@@ -608,16 +756,23 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length).decode('utf-8'))
             student_id = str(body.get("student_id") or "").strip()
-            phase = str(body.get("phase") or "WORD").strip()
+            tok = body.get("token") or self.headers.get("X-Exam-Token", "")
+            valid, err = ExamEngine.verify_student_token(student_id, tok)
+            if not valid:
+                self.send_json({"status": "error", "detail": err}, 403)
+                return
+
             session = ACTIVE_SESSIONS.get(student_id)
             if not session:
                 self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
                 return
 
+            phase = str(body.get("phase") or "WORD").strip()
             session["current_phase"] = phase
             if phase == "WORD":
                 session["word_started_at"] = time.strftime("%H:%M:%S")
 
+            save_active_sessions_backup()
             self.send_json({"status": "success", "phase": phase})
 
         elif path == "/api/teacher/grade-content":

@@ -54,6 +54,12 @@
                    class="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow transition flex items-center gap-2">
                     <i class="fa-solid fa-file-excel text-base"></i> Xuất Excel (Lớp hiện tại)
                 </a>
+                <button onclick="openTeacherChangePasswordModal()" class="px-3 py-2 text-xs font-semibold text-amber-200 bg-amber-950/80 hover:bg-amber-900 rounded-lg transition flex items-center gap-1.5 border border-amber-800" title="Đổi mật khẩu cổng Giảng viên">
+                    <i class="fa-solid fa-key text-amber-400"></i> Đổi MK
+                </button>
+                <button onclick="handleTeacherLogout()" class="px-3 py-2 text-xs font-semibold text-rose-200 bg-rose-950/80 hover:bg-rose-900 rounded-lg transition flex items-center gap-1.5 border border-rose-800" title="Đăng xuất khỏi cổng Giảng viên">
+                    <i class="fa-solid fa-right-from-bracket text-rose-400"></i> Đăng Xuất
+                </button>
             </div>
         </div>
     </header>
@@ -1648,8 +1654,306 @@
         </div>
     </div>
 
+    <!-- Modal Đăng Nhập Cổng Giảng Viên (Khóa Bảo Mật Bắt Buộc) -->
+    <div id="teacher-login-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-5">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/30 text-2xl">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-800">Cổng Quản Trị Giảng Viên</h2>
+                <p class="text-xs text-slate-500">Vui lòng nhập mật khẩu xác thực để truy cập Bàn chấm thi và Giám sát phòng thi.</p>
+            </div>
+
+            <form id="teacher-login-form" onsubmit="handleTeacherLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Mật Khẩu Giảng Viên
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="teacher-pwd-input" required autocomplete="current-password" placeholder="Nhập mật khẩu..." 
+                               class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-medium">
+                        <button type="button" onclick="togglePasswordVisibility('teacher-pwd-input', this)" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <p id="teacher-login-err" class="text-xs text-rose-600 font-semibold mt-1.5 hidden flex items-center gap-1">
+                        <i class="fa-solid fa-circle-exclamation"></i> <span id="teacher-login-err-text">Mật khẩu không chính xác!</span>
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                    <div class="font-bold flex items-center gap-1.5 text-blue-900">
+                        <i class="fa-solid fa-key text-blue-600"></i> Mật khẩu mặc định hệ thống:
+                    </div>
+                    <div class="font-mono font-bold text-blue-700 bg-white px-2 py-1 rounded border border-blue-200 inline-block">
+                        GiaoVien@2026
+                    </div>
+                    <p class="text-[11px] text-slate-500 italic mt-0.5">Thầy/Cô có thể đổi mật khẩu bất kỳ lúc nào sau khi đăng nhập.</p>
+                </div>
+
+                <button type="submit" id="btn-submit-teacher-login" class="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-500/25 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Vào Bàn Chấm
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Đổi Mật Khẩu Giảng Viên -->
+    <div id="teacher-change-password-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-base">Đổi Mật Khẩu Giảng Viên</h3>
+                </div>
+                <button onclick="closeTeacherChangePasswordModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="teacher-change-pwd-form" onsubmit="handleTeacherChangePassword(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu hiện tại</label>
+                    <input type="password" id="pwd-old" required placeholder="Nhập mật khẩu cũ..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                    <input type="password" id="pwd-new" required minlength="6" placeholder="Nhập mật khẩu mới..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Xác nhận mật khẩu mới</label>
+                    <input type="password" id="pwd-confirm" required minlength="6" placeholder="Nhập lại mật khẩu mới..." class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+
+                <p id="teacher-change-pwd-err" class="text-xs text-rose-600 font-semibold hidden"></p>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeTeacherChangePasswordModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                        Hủy bỏ
+                    </button>
+                    <button type="submit" id="btn-submit-change-pwd" class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-check"></i> Cập Nhật Mật Khẩu
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Script Điều Khiển Teacher Dashboard -->
     <script>
+        // BẢO MẬT CỔNG GIẢNG VIÊN - INTERCEPT FETCH CHO TẤT CẢ CÁC API
+        const originalFetch = window.fetch;
+        window.fetch = async function(url, options = {}) {
+            options = options || {};
+            options.headers = options.headers || {};
+            const teacherToken = localStorage.getItem('teacher_token') || sessionStorage.getItem('teacher_token') || '';
+            
+            if (options.headers instanceof Headers) {
+                if (teacherToken && !options.headers.has('X-Teacher-Token')) {
+                    options.headers.set('X-Teacher-Token', teacherToken);
+                }
+            } else if (Array.isArray(options.headers)) {
+                if (teacherToken) {
+                    options.headers.push(['X-Teacher-Token', teacherToken]);
+                }
+            } else {
+                if (teacherToken && !options.headers['X-Teacher-Token']) {
+                    options.headers['X-Teacher-Token'] = teacherToken;
+                }
+            }
+
+            const response = await originalFetch(url, options);
+            if (response.status === 401 && String(url).includes('/api/teacher') && !String(url).includes('/api/teacher/login')) {
+                showTeacherLoginModal();
+            }
+            return response;
+        };
+
+        function showTeacherLoginModal() {
+            const modal = document.getElementById('teacher-login-modal');
+            if (modal) modal.classList.remove('hidden');
+            const pwdInput = document.getElementById('teacher-pwd-input');
+            if (pwdInput) setTimeout(() => pwdInput.focus(), 100);
+        }
+
+        function hideTeacherLoginModal() {
+            const modal = document.getElementById('teacher-login-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+            }
+        }
+
+        async function handleTeacherLogin(e) {
+            if (e) e.preventDefault();
+            const pwdInput = document.getElementById('teacher-pwd-input');
+            const errEl = document.getElementById('teacher-login-err');
+            const errText = document.getElementById('teacher-login-err-text');
+            const btn = document.getElementById('btn-submit-teacher-login');
+            
+            const pwd = pwdInput ? pwdInput.value : '';
+            if (!pwd) return;
+
+            if (errEl) errEl.classList.add('hidden');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xác thực...';
+            }
+
+            try {
+                const res = await originalFetch('/api/teacher/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    localStorage.setItem('teacher_token', data.token);
+                    sessionStorage.setItem('teacher_token', data.token);
+                    if (pwdInput) pwdInput.value = '';
+                    hideTeacherLoginModal();
+                    updateExcelExportUrl();
+                    loadStudents();
+                    loadQuestionsBank();
+                } else {
+                    if (errEl) errEl.classList.remove('hidden');
+                    if (errText) errText.innerText = data.detail || 'Mật khẩu Giảng viên không đúng!';
+                }
+            } catch (err) {
+                if (errEl) errEl.classList.remove('hidden');
+                if (errText) errText.innerText = 'Lỗi kết nối máy chủ: ' + err.message;
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Vào Bàn Chấm';
+                }
+            }
+        }
+
+        async function handleTeacherLogout() {
+            if (!confirm('Thầy/Cô có chắc chắn muốn đăng xuất khỏi cổng Giảng viên không?')) return;
+            try {
+                await fetch('/api/teacher/logout', { method: 'POST' });
+            } catch (e) {}
+            localStorage.removeItem('teacher_token');
+            sessionStorage.removeItem('teacher_token');
+            showTeacherLoginModal();
+        }
+
+        function openTeacherChangePasswordModal() {
+            const modal = document.getElementById('teacher-change-password-modal');
+            if (modal) modal.classList.remove('hidden');
+            const err = document.getElementById('teacher-change-pwd-err');
+            if (err) err.classList.add('hidden');
+            const f = document.getElementById('teacher-change-pwd-form');
+            if (f) f.reset();
+        }
+
+        function closeTeacherChangePasswordModal() {
+            const modal = document.getElementById('teacher-change-password-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function handleTeacherChangePassword(e) {
+            if (e) e.preventDefault();
+            const oldP = document.getElementById('pwd-old').value;
+            const newP = document.getElementById('pwd-new').value;
+            const confP = document.getElementById('pwd-confirm').value;
+            const err = document.getElementById('teacher-change-pwd-err');
+            const btn = document.getElementById('btn-submit-change-pwd');
+
+            if (err) err.classList.add('hidden');
+
+            if (newP !== confP) {
+                if (err) {
+                    err.innerText = 'Mật khẩu mới và xác nhận mật khẩu không khớp!';
+                    err.classList.remove('hidden');
+                }
+                return;
+            }
+            if (newP.length < 6) {
+                if (err) {
+                    err.innerText = 'Mật khẩu mới phải có ít nhất 6 ký tự!';
+                    err.classList.remove('hidden');
+                }
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
+            }
+
+            try {
+                const res = await fetch('/api/teacher/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_password: oldP, new_password: newP })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    alert('🎉 Đổi mật khẩu Giảng viên thành công!');
+                    closeTeacherChangePasswordModal();
+                } else {
+                    if (err) {
+                        err.innerText = data.detail || data.error || 'Đổi mật khẩu thất bại!';
+                        err.classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                if (err) {
+                    err.innerText = 'Lỗi kết nối: ' + error.message;
+                    err.classList.remove('hidden');
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Cập Nhật Mật Khẩu';
+                }
+            }
+        }
+
+        function updateExcelExportUrl() {
+            const token = localStorage.getItem('teacher_token') || sessionStorage.getItem('teacher_token') || '';
+            const btn = document.getElementById('btn-export-excel');
+            if (btn && token) {
+                const cohortSel = document.getElementById('filter-cohort');
+                const classSel = document.getElementById('filter-class');
+                const cVal = cohortSel ? cohortSel.value : 'ALL';
+                const clVal = classSel ? classSel.value : 'ALL';
+                btn.href = `/api/teacher/export-excel?cohort=${encodeURIComponent(cVal)}&class_name=${encodeURIComponent(clVal)}&token=${encodeURIComponent(token)}`;
+            }
+        }
+
+        async function checkTeacherAuth() {
+            try {
+                const res = await fetch('/api/teacher/verify-auth');
+                const data = await res.json();
+                if (data.authenticated) {
+                    hideTeacherLoginModal();
+                    updateExcelExportUrl();
+                    loadStudents();
+                    loadQuestionsBank();
+                } else {
+                    showTeacherLoginModal();
+                }
+            } catch (e) {
+                showTeacherLoginModal();
+            }
+        }
+
         let allStudents = [];
         let filteredStudents = [];
         let classesCatalog = {};
@@ -1796,7 +2100,9 @@
 
             // Cập nhật đường link xuất Excel theo đúng bộ lọc đang chọn
             const exportBtn = document.getElementById('btn-export-excel');
-            exportBtn.href = `/api/teacher/export-excel?cohort=${encodeURIComponent(cohort)}&class_name=${encodeURIComponent(className)}`;
+            const teacherToken = localStorage.getItem('teacher_token') || sessionStorage.getItem('teacher_token') || '';
+            const tokenParam = teacherToken ? `&token=${encodeURIComponent(teacherToken)}` : '';
+            exportBtn.href = `/api/teacher/export-excel?cohort=${encodeURIComponent(cohort)}&class_name=${encodeURIComponent(className)}${tokenParam}`;
             
             // Cập nhật tiêu đề bảng
             let heading = "Danh Sách Bài Thi";
@@ -4202,8 +4508,8 @@ Căn cứ: Điều 8 Nghị định 30/2020/NĐ-CP`;
             });
         }
 
-        loadStudents();
-        loadQuestionsBank();
+        // Khởi động kiểm tra xác thực Giảng viên
+        checkTeacherAuth();
     </script>
 </body>
 </html>

@@ -218,6 +218,9 @@ document.getElementById('start-exam-form').addEventListener('submit', async (e) 
         const res = await response.json();
         if (res.status === 'success') {
             examData = res.data;
+            if (examData.exam_token) {
+                sessionStorage.setItem('exam_token', examData.exam_token);
+            }
             if (examData.is_resumed) {
                 alert(`📋 KHÔI PHỤC BÀI THI THÀNH CÔNG:\nChào ${examData.student_name}, bài thi đang làm dở của bạn đã được khôi phục trên thiết bị này!\nThời gian còn lại: ~${Math.ceil(examData.remaining_seconds / 60)} phút.`);
             }
@@ -250,11 +253,13 @@ function initExamRoom() {
     startTimer();
     startSessionSync();
 
-    // Thiết lập đường dẫn tải phôi Word bảo mật cá nhân
+    // Thiết lập đường dẫn tải phôi Word bảo mật cá nhân (nhúng token)
+    const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
+    const tokQuery = tok ? `?token=${encodeURIComponent(tok)}` : '';
     const btnTemplate1 = document.getElementById('btn-download-template-1');
-    if (btnTemplate1) btnTemplate1.href = `/api/exam/download-template/${examData.student_id}/1`;
+    if (btnTemplate1) btnTemplate1.href = `/api/exam/download-template/${examData.student_id}/1${tokQuery}`;
     const btnTemplate2 = document.getElementById('btn-download-template-2');
-    if (btnTemplate2) btnTemplate2.href = `/api/exam/download-template/${examData.student_id}/2`;
+    if (btnTemplate2) btnTemplate2.href = `/api/exam/download-template/${examData.student_id}/2${tokQuery}`;
 
     renderQuizQuestions(examData.quiz_questions);
     renderPracticeCases(examData.practice_cases);
@@ -523,10 +528,18 @@ async function transitionToWordPhase(notify = true) {
     }
     if (examData && examData.student_id) {
         try {
+            const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
             await fetch('/api/exam/set-phase', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ student_id: examData.student_id, phase: 'WORD' })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Exam-Token': tok
+                },
+                body: JSON.stringify({ 
+                    student_id: examData.student_id, 
+                    phase: 'WORD',
+                    token: tok 
+                })
             });
         } catch (e) {}
     }
@@ -576,13 +589,18 @@ async function reportTabViolation(count, awaySeconds) {
 
     if (examData && examData.student_id) {
         try {
+            const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
             await fetch('/api/exam/report-violation', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Exam-Token': tok
+                },
                 body: JSON.stringify({
                     student_id: examData.student_id,
                     violation_type: 'TAB_SWITCH',
-                    detail: `Rời màn hình khi làm trắc nghiệm (Lần ${count}, vắng ${awaySeconds}s)`
+                    detail: `Rời màn hình khi làm trắc nghiệm (Lần ${count}, vắng ${awaySeconds}s)`,
+                    token: tok
                 })
             });
         } catch (e) {}
@@ -614,12 +632,17 @@ function switchTab(tab) {
 async function submitQuizAnswers() {
     if (!examData) return;
     try {
+        const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
         const response = await fetch('/api/exam/submit-quiz', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Exam-Token': tok
+            },
             body: JSON.stringify({
                 student_id: examData.student_id,
-                answers: userAnswers
+                answers: userAnswers,
+                token: tok
             })
         });
         const res = await response.json();
@@ -640,10 +663,12 @@ async function handleFileUpload(caseIndex) {
     if (!fileInput.files || fileInput.files.length === 0) return;
 
     const file = fileInput.files[0];
+    const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
     const formData = new FormData();
     formData.append('student_id', examData.student_id);
     formData.append('case_index', caseIndex);
     formData.append('file', file);
+    formData.append('token', tok);
 
     const resultBox = document.getElementById(`case${caseIndex}-grade-result`);
     resultBox.classList.remove('hidden');
@@ -652,6 +677,9 @@ async function handleFileUpload(caseIndex) {
     try {
         const response = await fetch('/api/exam/upload-docx', {
             method: 'POST',
+            headers: {
+                'X-Exam-Token': tok
+            },
             body: formData
         });
         const res = await response.json();
@@ -727,7 +755,13 @@ async function finishExam() {
     await submitQuizAnswers();
 
     try {
-        const response = await fetch(`/api/exam/final-report/${examData.student_id}`);
+        const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
+        const tokQuery = tok ? `?token=${encodeURIComponent(tok)}` : '';
+        const response = await fetch(`/api/exam/final-report/${encodeURIComponent(examData.student_id)}${tokQuery}`, {
+            headers: {
+                'X-Exam-Token': tok
+            }
+        });
         const res = await response.json();
 
         document.getElementById('result-name').innerText = res.student_name;

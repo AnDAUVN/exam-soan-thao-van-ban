@@ -27,7 +27,27 @@ TEMPLATE_STORAGE = os.path.join(BASE_DIR, "templates_generated")
 CATALOG_FILE = os.path.join(BASE_DIR, "classes_catalog.json")
 QUESTIONS_BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
 ROSTER_FILE = os.path.join(BASE_DIR, "class_roster.json")
+SESSIONS_BACKUP_FILE = os.path.join(BASE_DIR, "sessions_backup.json")
 os.makedirs(TEMPLATE_STORAGE, exist_ok=True)
+
+def load_active_sessions_backup():
+    if os.path.exists(SESSIONS_BACKUP_FILE):
+        try:
+            with open(SESSIONS_BACKUP_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    ACTIVE_SESSIONS.update(data)
+        except Exception as e:
+            print("Lỗi đọc sessions_backup.json:", e)
+
+def save_active_sessions_backup():
+    try:
+        with open(SESSIONS_BACKUP_FILE, "w", encoding="utf-8") as f:
+            json.dump(ACTIVE_SESSIONS, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Lỗi lưu sessions_backup.json:", e)
+
+load_active_sessions_backup()
 
 def load_class_roster_data() -> Dict[str, Any]:
     if os.path.exists(ROSTER_FILE):
@@ -363,6 +383,21 @@ class ExamEngine:
             "found": False,
             "enforced": enforce
         }
+
+    @staticmethod
+    def verify_student_token(student_id: str, token: str) -> Tuple[bool, str]:
+        """Xác thực Token phiên thi chống nộp bài hộ hoặc phá hoại chéo (Anti-IDOR)"""
+        if not student_id:
+            return False, "Thiếu mã sinh viên!"
+        session = ACTIVE_SESSIONS.get(student_id)
+        if not session:
+            return False, "Không tìm thấy phiên thi của thí sinh này!"
+        expected = session.get("exam_token")
+        if not expected:
+            return True, ""
+        if not token or str(token).strip() != str(expected).strip():
+            return False, "⛔ TỪ CHỐI TRUY CẬP: Token phiên thi không hợp lệ! Bạn không có quyền thao tác trên bài thi của thí sinh này."
+        return True, ""
 
     # ================= QUẢN LÝ THANG ĐIỂM & RUBRIC CHẤM =================
     @staticmethod
@@ -944,6 +979,7 @@ class ExamEngine:
         }
 
         ACTIVE_SESSIONS[student_id] = session_data
+        save_active_sessions_backup()
 
         return {
             "student_id": student_id,
@@ -990,6 +1026,7 @@ class ExamEngine:
         session["termination_reason"] = ""
 
         remaining_sec = max(0, int(new_end_time - now))
+        save_active_sessions_backup()
         return {
             "status": "success",
             "student_id": student_id,
@@ -1011,6 +1048,7 @@ class ExamEngine:
         session["termination_reason"] = reason_clean
         session["end_time"] = time.time()
         session["is_submitted"] = True
+        save_active_sessions_backup()
 
         return {
             "status": "success",
@@ -1050,6 +1088,7 @@ class ExamEngine:
             new_session["is_reopened"] = True
             new_session["reopened_mode"] = "restart"
             new_session["reopened_at"] = now
+            save_active_sessions_backup()
             return {
                 "status": "success",
                 "mode": "restart",
@@ -1082,6 +1121,7 @@ class ExamEngine:
 
             remaining_sec = max(0, int(new_end_time - now))
             rem_m = max(1, int(remaining_sec / 60))
+            save_active_sessions_backup()
             return {
                 "status": "success",
                 "mode": "resume",
@@ -1112,6 +1152,8 @@ class ExamEngine:
         if session.get("anti_cheat_overall") == "CHEATING":
             session["anti_cheat_overall"] = "WARNING"
             session["anti_cheat_summary"] = "Đã được Giám thị xác nhận cho đổi máy"
+
+        save_active_sessions_backup()
 
         return {
             "status": "success",
@@ -1267,6 +1309,7 @@ class ExamEngine:
             "max_score": quiz_max,
             "details": details
         }
+        save_active_sessions_backup()
         return session["quiz_results"]
 
     @staticmethod
@@ -1317,6 +1360,8 @@ class ExamEngine:
             session["anti_cheat_overall"] = "WARNING"
         else:
             session["anti_cheat_overall"] = "SAFE"
+
+        save_active_sessions_backup()
 
         return {
             "case_index": case_index,

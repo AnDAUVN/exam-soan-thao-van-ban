@@ -6,16 +6,18 @@ Bao gồm Cổng Sinh Viên và Cổng Giảng Viên (Quản lý Khóa - Lớp).
 import os
 import re
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response, Query
+import time
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response, Query, Request, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 
-from exam_engine import ExamEngine, ACTIVE_SESSIONS, COHORTS_AND_CLASSES
+from exam_engine import ExamEngine, ACTIVE_SESSIONS, COHORTS_AND_CLASSES, save_active_sessions_backup
 from gdrive_service import GDriveService
 from grading_service import GradingService
+from teacher_auth import TeacherAuthService
 
 app = FastAPI(title="Hệ thống thi Soạn thảo Văn bản Hành chính (Nghị định 30/2020/NĐ-CP)")
 
@@ -26,6 +28,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def teacher_auth_middleware(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/teacher") and path not in [
+        "/api/teacher/login",
+        "/api/teacher/verify-auth"
+    ]:
+        token = request.headers.get("X-Teacher-Token") or request.cookies.get("teacher_token") or request.query_params.get("token")
+        if not TeacherAuthService.is_valid_token(token):
+            return JSONResponse(status_code=401, content={"status": "error", "code": "UNAUTHORIZED", "detail": "Yêu cầu đăng nhập Giảng viên!"})
+    response = await call_next(request)
+    return response
 
 BASE_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
@@ -47,9 +62,17 @@ class StartExamRequest(BaseModel):
 class UnlockDeviceRequest(BaseModel):
     student_id: str
 
+class TeacherLoginRequest(BaseModel):
+    password: str
+
+class TeacherChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
 class SubmitQuizRequest(BaseModel):
     student_id: str
     answers: Dict[str, str]
+    token: Optional[str] = ""
 
 class GradeContentRequest(BaseModel):
     student_id: str
@@ -87,10 +110,12 @@ class ReportViolationRequest(BaseModel):
     student_id: str
     violation_type: str = "TAB_SWITCH"
     detail: str = ""
+    token: Optional[str] = ""
 
 class PhaseTransitionRequest(BaseModel):
     student_id: str
     phase: str = "WORD"
+    token: Optional[str] = ""
 
 class SaveRosterRequest(BaseModel):
     cohort: str
@@ -247,7 +272,17 @@ def start_exam(req: StartExamRequest):
     return {"status": "success", "data": exam_data}
 
 @app.get("/api/exam/download-template/{student_id}/{case_index}")
-def download_student_template(student_id: str, case_index: int):
+def download_student_template(
+    student_id: str, 
+    case_index: int,
+    token: Optional[str] = Query(None),
+    x_exam_token: Optional[str] = Header(None)
+):
+    tok = token or x_exam_token
+    valid, err = ExamEngine.verify_student_token(student_id, tok)
+    if not valid:
+        raise HTTPException(status_code=403, detail=err)
+
     docx_path = ExamEngine.create_official_docx_template(student_id, case_index)
     if os.path.exists(docx_path):
         return FileResponse(
@@ -261,19 +296,32 @@ def download_student_template(student_id: str, case_index: int):
 async def upload_docx(
     student_id: str = Form(...),
     case_index: int = Form(...),
+    token: Optional[str] = Form(None),
+    x_exam_token: Optional[str] = Header(None),
     file: UploadFile = File(...)
 ):
+    tok = token or x_exam_token
+    valid, err = ExamEngine.verify_student_token(student_id, tok)
+    if not valid:
+        raise HTTPException(status_code=403, detail=err)
+
     if not file.filename.endswith(".docx"):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file định dạng Microsoft Word (.docx)")
 
+    content = await file.read()
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Dung lượng file vượt quá giới hạn tối đa 15MB!")
+
+    clean_filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', os.path.basename(file.filename))
     student_upload_dir = os.path.join(UPLOAD_DIR, student_id)
     os.makedirs(student_upload_dir, exist_ok=True)
 
-    file_path = os.path.join(student_upload_dir, f"Case_{case_index}_{file.filename}")
+    file_path = os.path.join(student_upload_dir, f"Case_{case_index}_{clean_filename}")
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(content)
 
     grade_res = ExamEngine.grade_practice_file(student_id, file_path, case_index)
+    save_active_sessions_backup()
 
     # Tự động đồng bộ lên Google Drive theo lớp (cttrung@ntt.edu.vn)
     session = ACTIVE_SESSIONS.get(student_id, {})
@@ -331,7 +379,12 @@ def get_session(student_id: str, device_id: Optional[str] = Query(None)):
     }
 
 @app.post("/api/exam/report-violation")
-def report_violation(req: ReportViolationRequest):
+def report_violation(req: ReportViolationRequest, x_exam_token: Optional[str] = Header(None)):
+    tok = req.token or x_exam_token
+    valid, err = ExamEngine.verify_student_token(req.student_id, tok)
+    if not valid:
+        raise HTTPException(status_code=403, detail=err)
+
     session = ACTIVE_SESSIONS.get(req.student_id)
     if not session:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
@@ -351,32 +404,56 @@ def report_violation(req: ReportViolationRequest):
         if session.get("anti_cheat_overall") != "CHEATING":
             session["anti_cheat_overall"] = "WARNING"
             session["anti_cheat_summary"] = f"Cảnh báo: Rời màn hình {len(tab_violations)} lần"
-            
+
+    save_active_sessions_backup()
     return {"status": "success", "violations_count": len(violations)}
 
 @app.post("/api/exam/set-phase")
-def set_phase(req: PhaseTransitionRequest):
+def set_phase(req: PhaseTransitionRequest, x_exam_token: Optional[str] = Header(None)):
+    tok = req.token or x_exam_token
+    valid, err = ExamEngine.verify_student_token(req.student_id, tok)
+    if not valid:
+        raise HTTPException(status_code=403, detail=err)
+
     session = ACTIVE_SESSIONS.get(req.student_id)
     if not session:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
     session["current_phase"] = req.phase
     if req.phase == "WORD":
         session["word_started_at"] = time.strftime("%H:%M:%S")
+    save_active_sessions_backup()
     return {"status": "success", "phase": req.phase}
 
 @app.post("/api/exam/submit-quiz")
-def submit_quiz(req: SubmitQuizRequest):
+def submit_quiz(req: SubmitQuizRequest, x_exam_token: Optional[str] = Header(None)):
+    tok = req.token or x_exam_token
+    valid, err = ExamEngine.verify_student_token(req.student_id, tok)
+    if not valid:
+        raise HTTPException(status_code=403, detail=err)
+
     res = ExamEngine.submit_quiz(req.student_id, req.answers)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
+    save_active_sessions_backup()
     return {"status": "success", "results": res}
 
 @app.get("/api/exam/final-report/{student_id}")
-def get_final_report(student_id: str):
+def get_final_report(
+    student_id: str,
+    token: Optional[str] = Query(None),
+    x_exam_token: Optional[str] = Header(None)
+):
+    tok = token or x_exam_token
+    valid, err = ExamEngine.verify_student_token(student_id, tok)
+    if not valid:
+        raise HTTPException(status_code=403, detail=err)
+
     session = ACTIVE_SESSIONS.get(student_id)
     if not session:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
     session["is_submitted"] = True
+    save_active_sessions_backup()
+
     quiz = session.get("quiz_results", {})
     words = session.get("word_scores", {})
     quiz_pt = quiz.get("score", 0.0)
@@ -400,6 +477,38 @@ def get_final_report(student_id: str):
         "anti_cheat_summary": session.get("anti_cheat_summary", "Hợp lệ"),
         "word_details": words
     }
+
+# ----------------- TEACHER AUTH APIS -----------------
+@app.post("/api/teacher/login")
+def teacher_login_route(req: TeacherLoginRequest, response: Response):
+    ok, token_or_err = TeacherAuthService.login(req.password)
+    if not ok:
+        raise HTTPException(status_code=401, detail=token_or_err)
+    response.set_cookie(key="teacher_token", value=token_or_err, httponly=True, max_age=86400 * 7, samesite="lax")
+    return {"status": "success", "token": token_or_err}
+
+@app.post("/api/teacher/logout")
+def teacher_logout_route(request: Request, response: Response, x_teacher_token: Optional[str] = Header(None)):
+    token = x_teacher_token or request.cookies.get("teacher_token")
+    TeacherAuthService.logout(token)
+    response.delete_cookie("teacher_token")
+    return {"status": "success", "message": "Đã đăng xuất cổng Giảng viên thành công!"}
+
+@app.post("/api/teacher/change-password")
+def teacher_change_password_route(req: TeacherChangePasswordRequest, request: Request, x_teacher_token: Optional[str] = Header(None)):
+    token = x_teacher_token or request.cookies.get("teacher_token")
+    if not TeacherAuthService.is_valid_token(token):
+        raise HTTPException(status_code=401, detail="Yêu cầu đăng nhập Giảng viên!")
+    ok, msg = TeacherAuthService.change_password(req.old_password, req.new_password)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"status": "success", "message": msg}
+
+@app.get("/api/teacher/verify-auth")
+def teacher_verify_auth_route(request: Request, x_teacher_token: Optional[str] = Header(None)):
+    token = x_teacher_token or request.cookies.get("teacher_token") or request.query_params.get("token")
+    valid = TeacherAuthService.is_valid_token(token)
+    return {"status": "success", "authenticated": valid}
 
 # ----------------- TEACHER APIS -----------------
 @app.get("/api/teacher/students")
