@@ -130,12 +130,20 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/teacher" or path == "/teacher.html":
             self.serve_file(os.path.join(FRONTEND_DIR, "teacher.html"), "text/html; charset=utf-8")
         elif path.startswith("/static/"):
-            rel_file = path[len("/static/"):]
-            file_path = os.path.join(FRONTEND_DIR, rel_file)
+            raw_rel = path[len("/static/"):]
+            decoded_rel = urllib.parse.unquote(raw_rel).lstrip("/\\")
+            safe_path = os.path.abspath(os.path.join(FRONTEND_DIR, decoded_rel))
+            # Chống Path Traversal (L02): Xác thực đường dẫn thực tế phải nằm trong FRONTEND_DIR
+            if not safe_path.startswith(FRONTEND_DIR + os.sep) and safe_path != FRONTEND_DIR:
+                self.send_error(403, "Access Denied: Path Traversal Detected")
+                return
             content_type = "text/plain"
-            if rel_file.endswith(".css"): content_type = "text/css"
-            elif rel_file.endswith(".js"): content_type = "application/javascript"
-            self.serve_file(file_path, content_type)
+            if safe_path.endswith(".css"): content_type = "text/css; charset=utf-8"
+            elif safe_path.endswith(".js"): content_type = "application/javascript; charset=utf-8"
+            elif safe_path.endswith(".png"): content_type = "image/png"
+            elif safe_path.endswith(".jpg") or safe_path.endswith(".jpeg"): content_type = "image/jpeg"
+            elif safe_path.endswith(".svg"): content_type = "image/svg+xml"
+            self.serve_file(safe_path, content_type, allowed_base=FRONTEND_DIR)
 
         # 2. DANH MỤC KHÓA & LỚP
         elif path == "/api/classes":
@@ -187,10 +195,21 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                     return
             self.send_error(404, "Không tìm thấy phôi thi")
 
-        # 3b. ĐỒNG BỘ PHIÊN THI SINH VIÊN (GIA HẠN / ĐÌNH CHỈ)
+        # 3b. ĐỒNG BỘ PHIÊN THI SINH VIÊN (GIA HẠN / ĐÌNH CHỈ) - L11: Bắt buộc xác thực Token
         elif path.startswith("/api/exam/session/"):
             parts = parsed.path.split("/")
             student_id = parts[-1]
+
+            # L11: Xác thực token sinh viên hoặc token giảng viên
+            tok = query_params.get("token", [None])[0] or self.headers.get("X-Exam-Token", "")
+            t_tok = self.headers.get("X-Teacher-Token", "")
+            valid_student, _ = ExamEngine.verify_student_token(student_id, tok) if tok else (False, "")
+            valid_teacher = TeacherAuthService.is_valid_token(t_tok) if t_tok else False
+
+            if not valid_student and not valid_teacher:
+                self.send_json({"error": "Truy cập bị từ chối: Thiếu hoặc sai token xác thực phiên thi!"}, 403)
+                return
+
             session = ACTIVE_SESSIONS.get(student_id)
             if not session:
                 self.send_json({"error": "Không tìm thấy sinh viên"}, 404)
@@ -651,6 +670,13 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                 boundary = content_type.split("boundary=")[-1].strip().strip('"').encode('utf-8')
 
             length = int(self.headers.get('Content-Length', 0))
+            # L12: Kiểm tra dung lượng ngay khi nhận luồng, chặn tải tệp > 15MB
+            if length > 15 * 1024 * 1024:
+                self.send_json({"error": "Dung lượng tệp vượt quá giới hạn tối đa 15MB!"}, 413)
+                return
+            if length <= 0:
+                self.send_json({"error": "Dữ liệu tải lên rỗng!"}, 400)
+                return
             raw_data = self.rfile.read(length)
 
             parts = raw_data.split(b"--" + boundary)
@@ -697,6 +723,9 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
                     f.write(file_bytes)
 
             grade_res = ExamEngine.grade_practice_file(student_id, save_path, case_index)
+            if "error" in grade_res:
+                self.send_json({"status": "error", "detail": grade_res["error"]}, 400)
+                return
             save_active_sessions_backup()
 
             # TỰ ĐỘNG ĐỒNG BỘ LÊN GOOGLE DRIVE THEO LỚP (cttrung@ntt.edu.vn)
@@ -884,6 +913,13 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
         elif path == "/api/teacher/questions/parse-docx":
             file_bytes = None
             length = int(self.headers.get('Content-Length', 0))
+            # L12: Kiểm tra dung lượng ngay khi nhận luồng, chặn tải tệp > 15MB
+            if length > 15 * 1024 * 1024:
+                self.send_json({"error": "Dung lượng tệp vượt quá giới hạn tối đa 15MB!"}, 413)
+                return
+            if length <= 0:
+                self.send_json({"error": "Dữ liệu tải lên rỗng!"}, 400)
+                return
             raw_data = self.rfile.read(length) if length > 0 else b""
 
             if "multipart/form-data" in content_type and raw_data:
@@ -1064,11 +1100,17 @@ class ExamHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_json({"error": "Endpoint không tồn tại"}, 404)
 
-    def serve_file(self, file_path, content_type, filename=None):
-        if not os.path.exists(file_path):
+    def serve_file(self, file_path, content_type, filename=None, allowed_base=None):
+        real_path = os.path.abspath(file_path)
+        if allowed_base:
+            real_base = os.path.abspath(allowed_base)
+            if not real_path.startswith(real_base + os.sep) and real_path != real_base:
+                self.send_error(403, "Access Denied: Path Traversal Detected")
+                return
+        if not os.path.exists(real_path) or not os.path.isfile(real_path):
             self.send_error(404, "File Not Found")
             return
-        with open(file_path, "rb") as f:
+        with open(real_path, "rb") as f:
             data = f.read()
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")

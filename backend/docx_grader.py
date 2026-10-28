@@ -2,11 +2,13 @@
 Module chấm điểm tự động và Kiểm định Gian lận (Anti-Cheat Forensics) theo Nghị định 30/2020/NĐ-CP.
 """
 
+from __future__ import annotations
+import os
 import zipfile
 import re
 import datetime
 import xml.etree.ElementTree as ET
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, Optional
 
 NAMESPACES = {
     'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
@@ -133,26 +135,91 @@ class DocxNghiDinh30Grader:
         return forensics
 
     def parse_document(self) -> Dict[str, Any]:
-        """Bóc tách chi tiết từng thành phần để đối chiếu từ Ô 1 đến Ô 9"""
+        """
+        Bóc tách chi tiết từng thành phần để đối chiếu từ Ô 1 đến Ô 9.
+        L06 & L12:
+        - Kiểm tra an toàn tệp tải lên (Dung lượng <= 15MB, chống ZIP Bomb / XML expansion).
+        - Đánh giá kế thừa style và tỷ lệ phông chữ (Times New Roman >= 70%).
+        - Kiểm định ngày tháng năm chuẩn lịch (chặn ngày 99/99).
+        - Kiểm định bảng đầu trang định vị đúng Ô 1 & Ô 2 (không chấm điểm cho bảng dữ liệu ngẫu nhiên).
+        """
         results = {
             "margins": {},
             "paper_size": {},
             "fonts": set(),
             "has_times_new_roman": False,
+            "tnr_ratio": 0.0,
+            "primary_font": "Unknown",
+            "font_char_counts": {},
             "paragraphs": [],
             "tables_count": 0,
+            "has_valid_header_table": False,
+            "header_table_comment": "Chưa có bảng đầu trang định vị Cơ quan và Quốc hiệu",
+            "has_valid_date": False,
+            "date_comment": "Không tìm thấy ngày tháng năm hợp lệ",
             "text_full": "",
             "anti_cheat": {}
         }
 
+        # L12: Kiểm tra dung lượng tệp và cấu trúc ZIP trước khi đọc nội dung
         try:
+            if not os.path.exists(self.docx_path):
+                return {"error": "Tệp không tồn tại trên máy chủ"}
+
+            file_size = os.path.getsize(self.docx_path)
+            if file_size > 15 * 1024 * 1024:
+                return {"error": "Dung lượng tệp vượt quá giới hạn cho phép (15MB)"}
+
+            if not zipfile.is_zipfile(self.docx_path):
+                return {"error": "Tệp không phải định dạng ZIP/Word (.docx) hợp lệ"}
+
             with zipfile.ZipFile(self.docx_path, 'r') as zf:
+                infolist = zf.infolist()
+                if len(infolist) > 500:
+                    return {"error": "Cấu trúc tệp DOCX bất thường: số lượng phần tử vượt quá giới hạn an toàn (max 500 phần tử)"}
+
+                total_uncompressed = 0
+                for info in infolist:
+                    total_uncompressed += info.file_size
+                    if info.file_size > 15 * 1024 * 1024:
+                        return {"error": f"Phần tử '{info.filename}' trong tệp vượt quá kích thước cho phép"}
+                    if info.compress_size > 0:
+                        ratio = info.file_size / info.compress_size
+                        if ratio > 100:
+                            return {"error": "Phát hiện tệp có tỷ lệ nén bất thường (nghi vấn ZIP Bomb)"}
+
+                if total_uncompressed > 30 * 1024 * 1024:
+                    return {"error": "Tổng dung lượng giải nén vượt quá ngưỡng an toàn (30MB)"}
+
                 if 'word/document.xml' not in zf.namelist():
-                    return {"error": "File không hợp lệ hoặc không phải văn bản Word (.docx)"}
+                    return {"error": "Tệp DOCX không hợp lệ: thiếu word/document.xml"}
 
                 # Kiểm tra gian lận siêu dữ liệu
                 results["anti_cheat"] = self.inspect_anti_cheat(zf)
 
+                # 0. Đọc style mặc định từ word/styles.xml để hỗ trợ style inheritance
+                default_font = "Times New Roman"
+                if 'word/styles.xml' in zf.namelist():
+                    try:
+                        styles_xml = zf.read('word/styles.xml')
+                        styles_root = ET.fromstring(styles_xml)
+                        doc_def_rf = styles_root.find('.//w:docDefaults/w:rPrDefault/w:rPr/w:rFonts', NAMESPACES)
+                        if doc_def_rf is not None:
+                            df = doc_def_rf.attrib.get(f"{{{NAMESPACES['w']}}}ascii") or doc_def_rf.attrib.get(f"{{{NAMESPACES['w']}}}hAnsi")
+                            if df:
+                                default_font = df
+                        # Kiểm tra style Normal
+                        for st in styles_root.findall('.//w:style', NAMESPACES):
+                            if st.attrib.get(f"{{{NAMESPACES['w']}}}styleId") == "Normal" or st.attrib.get(f"{{{NAMESPACES['w']}}}default") == "1":
+                                st_rf = st.find('.//w:rFonts', NAMESPACES)
+                                if st_rf is not None:
+                                    df = st_rf.attrib.get(f"{{{NAMESPACES['w']}}}ascii")
+                                    if df:
+                                        default_font = df
+                    except Exception:
+                        pass
+
+                # Đọc word/document.xml
                 doc_xml = zf.read('word/document.xml')
                 root = ET.fromstring(doc_xml)
 
@@ -182,19 +249,43 @@ class DocxNghiDinh30Grader:
                             "is_a4": (205 <= width <= 215) and (292 <= height <= 302)
                         }
 
-                # 2. Phông chữ
-                for r_fonts in root.findall('.//w:rFonts', NAMESPACES):
-                    ascii_font = r_fonts.attrib.get(f"{{{NAMESPACES['w']}}}ascii")
-                    if ascii_font:
-                        results["fonts"].add(ascii_font)
+                # 2. Phông chữ: Đánh giá chi tiết từng run và tính tỷ lệ thống trị (L06)
+                font_char_counts: Dict[str, int] = {}
+                total_text_chars = 0
+                for r in root.findall('.//w:r', NAMESPACES):
+                    r_font = None
+                    rf = r.find('.//w:rFonts', NAMESPACES)
+                    if rf is not None:
+                        r_font = rf.attrib.get(f"{{{NAMESPACES['w']}}}ascii") or rf.attrib.get(f"{{{NAMESPACES['w']}}}hAnsi")
+                    if not r_font:
+                        r_font = default_font
 
-                results["has_times_new_roman"] = any("times new roman" in f.lower() for f in results["fonts"])
+                    run_text = "".join([t.text for t in r.findall('.//w:t', NAMESPACES) if t.text])
+                    c_count = len(run_text.strip())
+                    if c_count > 0:
+                        total_text_chars += c_count
+                        norm_f = r_font.strip()
+                        font_char_counts[norm_f] = font_char_counts.get(norm_f, 0) + c_count
+                        results["fonts"].add(norm_f)
 
-                # 3. Bảng đầu trang & chân trang
-                tables = root.findall('.//w:tbl', NAMESPACES)
-                results["tables_count"] = len(tables)
+                results["font_char_counts"] = font_char_counts
+                if font_char_counts:
+                    primary_f = max(font_char_counts, key=font_char_counts.get)
+                    results["primary_font"] = primary_f
 
-                # 4. Trích xuất text các đoạn
+                tnr_chars = sum(count for f_name, count in font_char_counts.items() if "times new roman" in f_name.lower())
+                calibri_chars = sum(count for f_name, count in font_char_counts.items() if any(bad in f_name.lower() for bad in ["calibri", "arial", "tahoma"]))
+                
+                if total_text_chars > 0:
+                    tnr_ratio = tnr_chars / total_text_chars
+                else:
+                    tnr_ratio = 1.0 if "times new roman" in default_font.lower() else 0.0
+
+                results["tnr_ratio"] = round(tnr_ratio, 2)
+                # Yêu cầu Times New Roman phải chiếm tối thiểu 70% tổng số ký tự (loại bỏ trường hợp chỉ có 1 run TNR trong tài liệu Calibri)
+                results["has_times_new_roman"] = (tnr_ratio >= 0.70)
+
+                # 3. Trích xuất text các đoạn
                 p_list = []
                 for p in root.findall('.//w:p', NAMESPACES):
                     p_text = "".join([t.text for t in p.findall('.//w:t', NAMESPACES) if t.text]).strip()
@@ -203,6 +294,76 @@ class DocxNghiDinh30Grader:
 
                 results["paragraphs"] = p_list
                 results["text_full"] = " ".join(p_list)
+                full_text = results["text_full"]
+
+                # 4. Kiểm tra Bảng đầu trang định vị Tên cơ quan và Quốc hiệu (L06)
+                tables = root.findall('.//w:tbl', NAMESPACES)
+                results["tables_count"] = len(tables)
+                if tables:
+                    first_table = tables[0]
+                    rows = first_table.findall('.//w:tr', NAMESPACES)
+                    if rows:
+                        first_row_cells = rows[0].findall('.//w:tc', NAMESPACES)
+                        if len(first_row_cells) >= 2:
+                            cell_0_txt = "".join([t.text for t in first_row_cells[0].findall('.//w:t', NAMESPACES) if t.text]).strip().upper()
+                            cell_1_txt = "".join([t.text for t in first_row_cells[1].findall('.//w:t', NAMESPACES) if t.text]).strip().upper()
+                            
+                            agency_kws = ["BỘ", "ỦY BAN", "UBND", "TRƯỜNG", "CÔNG TY", "TỔNG CÔNG TY", "SỞ", "PHÒNG", "VIỆN", "KHOA", "BAN", "TRUNG TÂM", "TỔ CHỨC", "ĐẢNG", "HỘI ĐỒNG", "CƠ QUAN"]
+                            motto_kws = ["CỘNG HÒA", "VIỆT NAM", "ĐỘC LẬP", "TỰ DO", "HẠNH PHÚC"]
+                            
+                            has_agency = any(kw in cell_0_txt for kw in agency_kws) or (len(cell_0_txt) >= 4 and cell_0_txt.isupper())
+                            has_motto = any(kw in cell_1_txt for kw in motto_kws)
+                            
+                            if has_agency and has_motto:
+                                results["has_valid_header_table"] = True
+                                results["header_table_comment"] = "Đạt: Bảng đầu trang 2 cột định vị chuẩn xác Tên cơ quan (bên trái) và Quốc hiệu/Tiêu ngữ (bên phải)"
+                            elif has_agency or has_motto:
+                                results["has_valid_header_table"] = True
+                                results["header_table_comment"] = "Đạt cơ bản: Bảng chia cột đầu trang có định vị cơ quan/quốc hiệu"
+                            else:
+                                results["has_valid_header_table"] = False
+                                results["header_table_comment"] = "Bảng đầu trang không chứa Tên cơ quan và Quốc hiệu (phát hiện bảng dữ liệu thông thường chứ không phải bảng chia cột đầu trang)"
+                        else:
+                            results["has_valid_header_table"] = False
+                            results["header_table_comment"] = "Bảng đầu trang không đủ 2 cột (cần 1 cột Tên cơ quan và 1 cột Quốc hiệu/Tiêu ngữ)"
+                else:
+                    results["has_valid_header_table"] = False
+                    results["header_table_comment"] = "Chưa dùng bảng không viền để chia 2 cột định vị đầu trang theo Nghị định 30"
+
+                # 5. Kiểm tra ngày tháng năm chuẩn lịch (L06: Chặn ngày 99/99)
+                date_match = re.search(
+                    r"(?:([\w\s]+),\s*)?ngày\s+(0?[1-9]|[12]\d|3[01])\s+tháng\s+(0?[1-9]|1[0-2])\s+năm\s+((?:19|20)\d{2})",
+                    full_text,
+                    re.IGNORECASE
+                )
+                if date_match:
+                    place_str, d_str, m_str, y_str = date_match.groups()
+                    day_val = int(d_str)
+                    month_val = int(m_str)
+                    year_val = int(y_str)
+                    
+                    is_valid_cal = True
+                    cal_reason = ""
+                    if month_val in [4, 6, 9, 11] and day_val > 30:
+                        is_valid_cal = False
+                        cal_reason = f"Tháng {month_val} chỉ có tối đa 30 ngày (bài làm ghi ngày {day_val})"
+                    elif month_val == 2:
+                        is_leap = (year_val % 4 == 0 and (year_val % 100 != 0 or year_val % 400 == 0))
+                        max_feb = 29 if is_leap else 28
+                        if day_val > max_feb:
+                            is_valid_cal = False
+                            cal_reason = f"Tháng 2 năm {year_val} chỉ có tối đa {max_feb} ngày (bài làm ghi ngày {day_val})"
+
+                    if is_valid_cal:
+                        results["has_valid_date"] = True
+                        matched_str = date_match.group(0).strip()
+                        results["date_comment"] = f"Đạt: Có thành phần địa danh ngày tháng năm chuẩn lịch ({matched_str})"
+                    else:
+                        results["has_valid_date"] = False
+                        results["date_comment"] = f"Ngày tháng không hợp lệ theo lịch: {cal_reason}"
+                else:
+                    results["has_valid_date"] = False
+                    results["date_comment"] = "Không tìm thấy ngày tháng năm hợp lệ theo Nghị định 30 (VD: '..., ngày 15 tháng 10 năm 2026')"
 
         except Exception as e:
             return {"error": f"Lỗi đọc file: {str(e)}"}
@@ -277,33 +438,37 @@ class DocxNghiDinh30Grader:
             "comment": f"Trên {top}mm, Dưới {bottom}mm, Trái {left}mm, Phải {right}mm"
         })
 
-        # 3. Phông Times New Roman
+        # 3. Phông Times New Roman (L06: Yêu cầu tỷ lệ >= 70%)
+        tnr_ratio = data.get("tnr_ratio", 0.0)
+        primary_f = data.get("primary_font", "Unknown")
         if data.get("has_times_new_roman"):
             score += p_font
-            details.append({"cell": "Tổng thể", "item": "Phông chữ chuẩn", "score": p_font, "max": p_font, "comment": "Đạt: Sử dụng Times New Roman theo quy định"})
+            details.append({"cell": "Tổng thể", "item": "Phông chữ chuẩn", "score": p_font, "max": p_font, "comment": f"Đạt: Sử dụng Times New Roman theo quy định ({int(tnr_ratio * 100)}% dung lượng văn bản)"})
         else:
-            details.append({"cell": "Tổng thể", "item": "Phông chữ chuẩn", "score": 0.0, "max": p_font, "comment": "Chưa đạt Times New Roman"})
+            details.append({"cell": "Tổng thể", "item": "Phông chữ chuẩn", "score": 0.0, "max": p_font, "comment": f"Chưa đạt: Phông Times New Roman chỉ chiếm {int(tnr_ratio * 100)}% (chủ đạo là phông '{primary_f}')"})
 
         # [ĐỐI CHIẾU Ô 1: QUỐC HIỆU VÀ TIÊU NGỮ]
         has_quoc_hieu = "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" in text_upper
-        has_tieu_ngu = "ĐỘC LẬP - TỰ DO - HẠNH PHÚC" in text_upper or "ĐỘC LẬP – TỰ DO – HẠNH PHÚC" in text_upper or "ĐỘC LẬP" in text_upper
+        has_tieu_ngu = ("ĐỘC LẬP - TỰ DO - HẠNH PHÚC" in text_upper or 
+                        "ĐỘC LẬP – TỰ DO – HẠNH PHÚC" in text_upper or 
+                        "ĐỘC LẬP - TỰ DO - HẠNH PHÚC" in text or
+                        "Độc lập - Tự do - Hạnh phúc" in text)
         if has_quoc_hieu and has_tieu_ngu:
             score += p_quoc_hieu
-            details.append({"cell": "Ô 1", "item": "Quốc hiệu & Tiêu ngữ", "score": p_quoc_hieu, "max": p_quoc_hieu, "comment": "Đạt: Quốc hiệu in hoa, Tiêu ngữ chuẩn có gạch nối"})
+            details.append({"cell": "Ô 1", "item": "Quốc hiệu & Tiêu ngữ", "score": p_quoc_hieu, "max": p_quoc_hieu, "comment": "Đạt: Quốc hiệu in hoa toàn bộ, Tiêu ngữ chuẩn có gạch nối"})
         else:
             q_partial = round(p_quoc_hieu * 0.33, 2) if (has_quoc_hieu or has_tieu_ngu) else 0.0
             score += q_partial
             details.append({"cell": "Ô 1", "item": "Quốc hiệu & Tiêu ngữ", "score": q_partial, "max": p_quoc_hieu, "comment": "Thiếu hoặc sai quy cách Quốc hiệu/Tiêu ngữ"})
 
-        # [ĐỐI CHIẾU Ô 2: TÊN CƠ QUAN BAN HÀNH]
-        has_table_header = data.get("tables_count", 0) >= 1
-        if has_table_header:
+        # [ĐỐI CHIẾU Ô 2: TÊN CƠ QUAN BAN HÀNH & BỐ CỤC ĐẦU TRANG] (L06)
+        if data.get("has_valid_header_table"):
             score += p_co_quan
-            details.append({"cell": "Ô 2", "item": "Tên cơ quan & Bố cục đầu trang", "score": p_co_quan, "max": p_co_quan, "comment": "Đạt: Dùng bảng không viền định vị Tên cơ quan và Quốc hiệu cân xứng"})
+            details.append({"cell": "Ô 2", "item": "Tên cơ quan & Bố cục đầu trang", "score": p_co_quan, "max": p_co_quan, "comment": data.get("header_table_comment", "Đạt")})
         else:
-            cq_partial = round(p_co_quan * 0.3, 2)
+            cq_partial = round(p_co_quan * 0.2, 2) if data.get("tables_count", 0) >= 1 else 0.0
             score += cq_partial
-            details.append({"cell": "Ô 2", "item": "Tên cơ quan & Bố cục đầu trang", "score": cq_partial, "max": p_co_quan, "comment": "Chưa dùng bảng chia cột đầu trang (dễ bị lệch dòng)"})
+            details.append({"cell": "Ô 2", "item": "Tên cơ quan & Bố cục đầu trang", "score": cq_partial, "max": p_co_quan, "comment": data.get("header_table_comment", "Chưa đạt bảng chia cột đầu trang")})
 
         # [ĐỐI CHIẾU Ô 3: SỐ VÀ KÝ HIỆU]
         has_so_ky_hieu = bool(re.search(r"Số\s*:\s*\d+[/][a-zA-Z0-9\-_]+", text, re.IGNORECASE))
@@ -315,13 +480,12 @@ class DocxNghiDinh30Grader:
             score += skh_partial
             details.append({"cell": "Ô 3", "item": "Số và ký hiệu văn bản", "score": skh_partial, "max": p_so_ky_hieu, "comment": "Chưa đúng cấu trúc Số/Ký hiệu (VD: Số: 01/QĐ-ĐHCN)"})
 
-        # [ĐỐI CHIẾU Ô 4: ĐỊA DANH, NGÀY THÁNG NĂM]
-        has_date = bool(re.search(r"ngày\s+\d{1,2}\s+tháng\s+\d{1,2}\s+năm\s+\d{4}", text, re.IGNORECASE))
-        if has_date:
+        # [ĐỐI CHIẾU Ô 4: ĐỊA DANH, NGÀY THÁNG NĂM] (L06: Chặn ngày 99/99)
+        if data.get("has_valid_date"):
             score += p_dia_danh
-            details.append({"cell": "Ô 4", "item": "Địa danh, ngày, tháng, năm", "score": p_dia_danh, "max": p_dia_danh, "comment": "Đạt: Có địa danh ngày tháng năm đầy đủ"})
+            details.append({"cell": "Ô 4", "item": "Địa danh, ngày, tháng, năm", "score": p_dia_danh, "max": p_dia_danh, "comment": data.get("date_comment", "Đạt")})
         else:
-            details.append({"cell": "Ô 4", "item": "Địa danh, ngày, tháng, năm", "score": 0.0, "max": p_dia_danh, "comment": "Thiếu phần địa danh, ngày... tháng... năm..."})
+            details.append({"cell": "Ô 4", "item": "Địa danh, ngày, tháng, năm", "score": 0.0, "max": p_dia_danh, "comment": data.get("date_comment", "Thiếu hoặc sai quy cách ngày tháng")})
 
         # [ĐỐI CHIẾU Ô 5: TÊN LOẠI & TRÍCH YẾU]
         has_type_or_abstract = any(kw in text_upper for kw in ["QUYẾT ĐỊNH", "THÔNG BÁO", "TỜ TRÌNH", "CÔNG VĂN", "VỀ VIỆC", "V/V"])
@@ -355,6 +519,8 @@ class DocxNghiDinh30Grader:
             "metadata": {
                 "margins": margins,
                 "paper_size": paper,
-                "fonts": list(data.get("fonts", []))
+                "fonts": list(data.get("fonts", [])),
+                "primary_font": data.get("primary_font", "Unknown"),
+                "tnr_ratio": data.get("tnr_ratio", 0.0)
             }
         }

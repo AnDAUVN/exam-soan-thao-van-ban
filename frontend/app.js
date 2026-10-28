@@ -1,3 +1,14 @@
+// L09: Hàm làm sạch dữ liệu đầu vào chống XSS
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Trạng thái ứng dụng client
 let examData = null;
 let userAnswers = {}; // {question_id: selected_text}
@@ -753,7 +764,7 @@ async function handleFileUpload(caseIndex) {
             const ac = grade.anti_cheat || {};
             let acBadge = '';
             if (ac.violations && ac.violations.length > 0) {
-                acBadge = `<span class="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold rounded flex items-center gap-1 border border-rose-300"><i class="fa-solid fa-triangle-exclamation text-rose-600"></i> ${ac.violations.join(', ')}</span>`;
+                acBadge = `<span class="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold rounded flex items-center gap-1 border border-rose-300"><i class="fa-solid fa-triangle-exclamation text-rose-600"></i> ${escapeHtml(ac.violations.join(', '))}</span>`;
             } else if (ac.status === 'SAFE') {
                 acBadge = `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded flex items-center gap-1"><i class="fa-solid fa-shield-check"></i> Phôi thi hợp lệ</span>`;
             } else if (ac.status === 'WARNING') {
@@ -762,13 +773,19 @@ async function handleFileUpload(caseIndex) {
                 acBadge = `<span class="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold rounded flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> Nghi vấn gian lận</span>`;
             }
 
+            const receiptHtml = grade.receipt_code ? 
+                `<span class="text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1" title="Mã biên nhận lưu vết máy chủ">
+                    <i class="fa-solid fa-receipt text-blue-600"></i> ${escapeHtml(grade.receipt_code)}
+                </span>` : '';
+
             resultBox.innerHTML = `
-                <div class="flex items-center justify-between mb-2 border-b border-emerald-200 pb-2">
-                    <div class="flex items-center gap-2">
+                <div class="flex items-center justify-between mb-2 border-b border-emerald-200 pb-2 flex-wrap gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold text-sm text-emerald-900 flex items-center gap-1.5">
                             <i class="fa-solid fa-circle-check text-emerald-600"></i> Đối chiếu Thể thức NĐ 30:
                         </span>
                         ${acBadge}
+                        ${receiptHtml}
                     </div>
                     <span class="font-bold text-base text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full">
                         ${grade.format_score}/${grade.format_max} điểm
@@ -778,9 +795,9 @@ async function handleFileUpload(caseIndex) {
                     ${grade.details.map(d => `
                         <div class="flex items-start justify-between py-1 border-b border-emerald-100/60">
                             <div>
-                                <span class="font-bold text-slate-800 bg-slate-200 px-1.5 py-0.5 rounded text-[10px] mr-1">${d.cell || 'Quy cách'}</span>
-                                <span class="font-medium text-slate-800">${d.item}</span>
-                                <div class="text-[11px] text-slate-500 italic mt-0.5">${d.comment}</div>
+                                <span class="font-bold text-slate-800 bg-slate-200 px-1.5 py-0.5 rounded text-[10px] mr-1">${escapeHtml(d.cell || 'Quy cách')}</span>
+                                <span class="font-medium text-slate-800">${escapeHtml(d.item)}</span>
+                                <div class="text-[11px] text-slate-500 italic mt-0.5">${escapeHtml(d.comment)}</div>
                             </div>
                             <span class="font-bold ${d.score > 0 ? 'text-emerald-700' : 'text-rose-600'} shrink-0 ml-2">
                                 ${d.score}/${d.max}đ
@@ -792,16 +809,16 @@ async function handleFileUpload(caseIndex) {
                     <div class="mt-2 pt-2 border-t border-emerald-200 text-[11px] text-slate-600">
                         <span class="font-bold">Kiểm tra bảo mật file:</span>
                         <ul class="list-disc pl-4 space-y-0.5 mt-0.5 text-slate-500">
-                            ${ac.flags.map(f => `<li>${f}</li>`).join('')}
+                            ${ac.flags.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
                         </ul>
                     </div>
                 ` : ''}
             `;
         } else {
-            resultBox.innerHTML = `<p class="text-xs text-rose-600">Lỗi: ${res.detail}</p>`;
+            resultBox.innerHTML = `<p class="text-xs text-rose-600 font-medium">Lỗi: ${escapeHtml(res.detail || res.error)}</p>`;
         }
     } catch (err) {
-        resultBox.innerHTML = `<p class="text-xs text-rose-600">Lỗi kết nối: ${err.message}</p>`;
+        resultBox.innerHTML = `<p class="text-xs text-rose-600 font-medium">Lỗi kết nối: ${escapeHtml(err.message)}</p>`;
     }
 }
 
@@ -850,7 +867,8 @@ async function finishExam() {
         if (acEl) {
             if (res.anti_cheat_violations && res.anti_cheat_violations.length > 0) {
                 acEl.className = 'font-bold text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200';
-                acEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i>${res.anti_cheat_violations.join(', ')}`;
+                const vList = res.anti_cheat_violations.map(v => typeof v === 'object' ? (v.detail || v.type) : String(v));
+                acEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i>` + escapeHtml(vList.join('; '));
             } else if (res.anti_cheat_overall === 'SAFE') {
                 acEl.className = 'font-bold text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200';
                 acEl.innerHTML = `<i class="fa-solid fa-shield-check mr-1"></i>Hợp lệ`;
@@ -884,7 +902,9 @@ function startReopenSync() {
     reopenSyncInterval = setInterval(async () => {
         if (!examData || !examData.student_id) return;
         try {
-            const response = await fetch(`/api/exam/session/${examData.student_id}`);
+            const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
+            const headers = tok ? { 'X-Exam-Token': tok } : {};
+            const response = await fetch(`/api/exam/session/${encodeURIComponent(examData.student_id)}?token=${encodeURIComponent(tok)}`, { headers });
             if (response.ok) {
                 const session = await response.json();
                 if (!session.is_submitted && session.remaining_seconds > 0) {
@@ -926,7 +946,9 @@ async function checkResumeFromModal() {
     }
 
     try {
-        const response = await fetch(`/api/exam/session/${examData.student_id}`);
+        const tok = examData.exam_token || sessionStorage.getItem('exam_token') || '';
+        const headers = tok ? { 'X-Exam-Token': tok } : {};
+        const response = await fetch(`/api/exam/session/${encodeURIComponent(examData.student_id)}?token=${encodeURIComponent(tok)}`, { headers });
         if (response.ok) {
             const session = await response.json();
             if (!session.is_submitted && session.remaining_seconds > 0) {

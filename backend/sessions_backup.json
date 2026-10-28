@@ -1,1 +1,32 @@
-{}
+{
+  "TEST_SV_999": {
+    "student_id": "TEST_SV_999",
+    "student_name": "Sinh Vien Test",
+    "sbd": "SBD999",
+    "cohort": "Khóa 1",
+    "class_name": "Lớp 01",
+    "device_id": "DEV_TEST_A",
+    "device_info": "Chrome Win 11",
+    "exam_token": "TOK_VALID_123",
+    "start_time": 1793168677.1002598,
+    "end_time": 1793168647.1010044,
+    "is_submitted": true,
+    "is_terminated": false,
+    "quiz_keys": {
+      "1": "A",
+      "2": "B"
+    },
+    "quiz_score": 0.0,
+    "word_scores": {},
+    "anti_cheat_violations": [
+      {
+        "time": "13:24:37",
+        "type": "DEVICE_MISMATCH",
+        "detail": "Đăng nhập trái phép từ thiết bị khác: Thiết bị lạ / Trình duyệt khác (Thiết bị gốc đã khóa: Chrome Win 11)",
+        "source": "DEVICE_GUARD"
+      }
+    ],
+    "anti_cheat_overall": "CHEATING",
+    "anti_cheat_summary": "CẢNH BÁO: Phát hiện đăng nhập từ 2 thiết bị khác nhau!"
+  }
+}

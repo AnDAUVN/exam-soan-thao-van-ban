@@ -294,12 +294,18 @@ def download_student_template(
 
 @app.post("/api/exam/upload-docx")
 async def upload_docx(
+    request: Request,
     student_id: str = Form(...),
     case_index: int = Form(...),
     token: Optional[str] = Form(None),
     x_exam_token: Optional[str] = Header(None),
     file: UploadFile = File(...)
 ):
+    # L12: Kiểm tra dung lượng ngay khi nhận luồng từ Content-Length trước khi đọc vào RAM
+    cl = request.headers.get("content-length")
+    if cl and int(cl) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Dung lượng file vượt quá giới hạn tối đa 15MB!")
+
     tok = token or x_exam_token
     valid, err = ExamEngine.verify_student_token(student_id, tok)
     if not valid:
@@ -310,7 +316,7 @@ async def upload_docx(
 
     content = await file.read()
     if len(content) > 15 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="Dung lượng file vượt quá giới hạn tối đa 15MB!")
+        raise HTTPException(status_code=413, detail="Dung lượng file vượt quá giới hạn tối đa 15MB!")
 
     clean_filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', os.path.basename(file.filename))
     student_upload_dir = os.path.join(UPLOAD_DIR, student_id)
@@ -321,6 +327,8 @@ async def upload_docx(
         buffer.write(content)
 
     grade_res = ExamEngine.grade_practice_file(student_id, file_path, case_index)
+    if "error" in grade_res:
+        raise HTTPException(status_code=400, detail=grade_res["error"])
     save_active_sessions_backup()
 
     # Tự động đồng bộ lên Google Drive theo lớp (cttrung@ntt.edu.vn)
@@ -345,7 +353,20 @@ async def upload_docx(
     }
 
 @app.get("/api/exam/session/{student_id}")
-def get_session(student_id: str, device_id: Optional[str] = Query(None)):
+def get_session(
+    student_id: str, 
+    device_id: Optional[str] = Query(None),
+    token: Optional[str] = Query(None),
+    x_exam_token: Optional[str] = Header(None),
+    x_teacher_token: Optional[str] = Header(None)
+):
+    # L11: Bắt buộc xác thực quyền truy cập phiên thi (Sinh viên sở hữu phiên hoặc Giảng viên)
+    tok = token or x_exam_token
+    valid_student, _ = ExamEngine.verify_student_token(student_id, tok) if tok else (False, "")
+    valid_teacher = TeacherAuthService.is_valid_token(x_teacher_token) if x_teacher_token else False
+    if not valid_student and not valid_teacher:
+        raise HTTPException(status_code=403, detail="Truy cập bị từ chối: Thiếu hoặc sai token xác thực phiên thi!")
+
     session = ACTIVE_SESSIONS.get(student_id)
     if not session:
         raise HTTPException(status_code=404, detail="Không tìm thấy phiên thi")

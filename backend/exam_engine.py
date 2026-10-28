@@ -2,6 +2,7 @@
 Engine quản lý phiên thi, danh mục Khóa - Lớp lưu trữ vĩnh viễn (hỗ trợ Thêm, Sửa, Xóa), sinh phôi Word và chấm điểm.
 """
 
+from __future__ import annotations
 import random
 import copy
 import time
@@ -10,7 +11,8 @@ import os
 import json
 import zipfile
 import datetime
-from typing import Dict, Any, List
+import threading
+from typing import Dict, Any, List, Tuple, Optional
 from questions_bank import MULTIPLE_CHOICE_POOL, PRACTICE_CASES_POOL_A, PRACTICE_CASES_POOL_B
 from docx_grader import DocxNghiDinh30Grader
 from grading_service import GradingService
@@ -33,6 +35,26 @@ os.makedirs(TEMPLATE_STORAGE, exist_ok=True)
 import threading
 _SESSIONS_LOCK = threading.RLock()
 
+def normalize_violation_entry(v: Any) -> Dict[str, Any]:
+    """
+    L08: Chuẩn hóa mọi bản ghi cảnh báo thành dict có time, type, detail, source.
+    Tránh lỗi 'str' object has no attribute 'get' khi giao diện hoặc hàm kiểm tra xử lý.
+    """
+    if isinstance(v, dict):
+        return {
+            "time": str(v.get("time") or time.strftime("%H:%M:%S")),
+            "type": str(v.get("type") or "GENERAL"),
+            "detail": str(v.get("detail") or ""),
+            "source": str(v.get("source") or "SYSTEM"),
+            "case_index": v.get("case_index")
+        }
+    return {
+        "time": time.strftime("%H:%M:%S"),
+        "type": "DOCX_VIOLATION" if any(k in str(v).lower() for k in ["copy", "phôi", "tác giả"]) else "GENERAL",
+        "detail": str(v),
+        "source": "LEGACY"
+    }
+
 def load_active_sessions_backup():
     with _SESSIONS_LOCK:
         if os.path.exists(SESSIONS_BACKUP_FILE):
@@ -40,6 +62,12 @@ def load_active_sessions_backup():
                 with open(SESSIONS_BACKUP_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, dict):
+                        # L08: Làm sạch và chuẩn hóa toàn bộ violations của các phiên cũ
+                        for s_id, s_data in data.items():
+                            if isinstance(s_data, dict) and "anti_cheat_violations" in s_data:
+                                s_data["anti_cheat_violations"] = [
+                                    normalize_violation_entry(v) for v in s_data.get("anti_cheat_violations", [])
+                                ]
                         ACTIVE_SESSIONS.update(data)
             except Exception as e:
                 print("Lỗi đọc sessions_backup.json:", e)
@@ -811,7 +839,86 @@ class ExamEngine:
         now = time.time()
         sbd_val = str(sbd).strip() if sbd else student_id
 
-        # 0. CHỐNG GIAN LẬN: KIỂM TRA DANH SÁCH LỚP (CHẶN NGƯỜI NGOÀI VÀO PHÒNG THI)
+        # Bắt buộc mã thiết bị device_id (L03: Chống lấy lại token khi bỏ trống device_id)
+        clean_device_id = str(device_id or "").strip()
+        if not clean_device_id:
+            return {
+                "error": "Lỗi xác thực thiết bị: Thiếu mã định danh thiết bị (device_id)! Vui lòng không sử dụng trình duyệt ẩn danh hoặc tắt localStorage."
+            }
+
+        existing = ACTIVE_SESSIONS.get(student_id)
+        if existing and not force_new:
+            # L05: Kiểm tra hết giờ trước khi xử lý đăng nhập - Chống tự tạo lượt thi mới sau khi phiên hết giờ
+            rem_sec = int(existing.get("end_time", now) - now)
+            if rem_sec <= 0 or existing.get("is_submitted", False):
+                existing["is_submitted"] = True
+                save_active_sessions_backup()
+                return {
+                    "error": "Ca thi của bạn đã kết thúc và hết thời gian làm bài! Nếu có sự cố cần làm tiếp hoặc thi lại, vui lòng báo Giảng viên để được mở lại bài thi."
+                }
+
+            # L03: CHỐNG GIAN LẬN: KIỂM TRA ĐĂNG NHẬP 01 THIẾT BỊ DUY NHẤT
+            bound_dev = existing.get("device_id")
+            bound_info = existing.get("device_info", "Thiết bị ban đầu")
+            
+            if bound_dev:
+                if clean_device_id != bound_dev:
+                    # Ghi nhận vi phạm đăng nhập từ thiết bị lạ
+                    dev_label = device_info or "Thiết bị lạ / Trình duyệt khác"
+                    v_time = time.strftime("%H:%M:%S")
+                    violation_text = f"Đăng nhập trái phép từ thiết bị khác: {dev_label} (Thiết bị gốc đã khóa: {bound_info})"
+                    violations = existing.setdefault("anti_cheat_violations", [])
+                    violations.append({
+                        "time": v_time,
+                        "type": "DEVICE_MISMATCH",
+                        "detail": violation_text,
+                        "source": "DEVICE_GUARD"
+                    })
+                    existing["anti_cheat_overall"] = "CHEATING"
+                    existing["anti_cheat_summary"] = "CẢNH BÁO: Phát hiện đăng nhập từ 2 thiết bị khác nhau!"
+                    save_active_sessions_backup()
+                    
+                    return {
+                        "error": (
+                            f"⛔ CẢNH BÁO GIAN LẬN THI CỬ:\n\n"
+                            f"Mã sinh viên '{student_id}' đã được đăng nhập làm bài trên một thiết bị khác:\n"
+                            f"[{bound_info} - Bắt đầu lúc {existing.get('device_first_login', 'trước đó')}].\n\n"
+                            f"Quy chế thi quy định: Mỗi thí sinh CHỈ ĐƯỢC PHÉP LÀM BÀI TRÊN 01 THIẾT BỊ DUY NHẤT!\n"
+                            f"Hệ thống đã ghi nhận vi phạm và phát tín hiệu cảnh báo tới Giám thị phòng thi.\n\n"
+                            f"Nếu máy tính của bạn bị hỏng/mất nguồn trong phòng thi, vui lòng báo trực tiếp Giám thị để được MỞ KHÓA ĐỔI MÁY."
+                        )
+                    }
+            else:
+                # Gắn thiết bị lần đầu
+                existing["device_id"] = clean_device_id
+                existing["device_info"] = device_info or "Chưa xác định"
+                existing["device_first_login"] = time.strftime("%H:%M:%S")
+
+            # Khôi phục bài làm dở khi cùng thiết bị hợp lệ
+            if rem_sec > 0:
+                return {
+                    "student_id": student_id,
+                    "student_name": existing.get("student_name", student_name),
+                    "sbd": existing.get("sbd", sbd_val),
+                    "cohort": existing.get("cohort", cohort),
+                    "class_name": existing.get("class_name", class_name),
+                    "duration_minutes": existing.get("duration_minutes", duration_minutes),
+                    "remaining_seconds": rem_sec,
+                    "quiz_questions": existing.get("quiz_questions", []),
+                    "practice_cases": [
+                        {
+                            "case_index": idx + 1,
+                            "context": c.get("context", ""),
+                            "requirements": c.get("requirements", [])
+                        }
+                        for idx, c in enumerate(existing.get("practice_cases", []))
+                    ],
+                    "exam_token": existing.get("exam_token", ""),
+                    "saved_answers": existing.get("quiz_answers", {}),
+                    "is_resumed": True
+                }
+
+        # 0. CHỐNG GIAN LẬN: KIỂM TRA DANH SÁCH LỚP (CHẶN NGƯỜI NGOÀI VÀO PHÒNG THI) KHI TẠO LƯỢT THI MỚI
         is_enforced, roster = ExamEngine.get_class_roster(cohort, class_name)
         if is_enforced:
             if roster and len(roster) > 0:
@@ -837,73 +944,17 @@ class ExamEngine:
                     )
                 }
 
-        existing = ACTIVE_SESSIONS.get(student_id)
-        if existing and not force_new:
-            # 1. Nếu sinh viên đã nộp bài và chưa được Giảng viên cho phép làm lại
-            if existing.get("is_submitted", False):
-                return {
-                    "error": "Bạn đã nộp bài thi rồi! Nếu lỡ tay bấm nộp nhầm và muốn làm tiếp, vui lòng báo Giảng viên mở lại bài thi cho bạn."
-                }
-
-            # 2. CHỐNG GIAN LẬN: KIỂM TRA ĐĂNG NHẬP 01 THIẾT BỊ DUY NHẤT
-            bound_dev = existing.get("device_id")
-            bound_info = existing.get("device_info", "Thiết bị ban đầu")
-            
-            if bound_dev and device_id and bound_dev != device_id:
-                # Ghi nhận vi phạm đăng nhập từ thiết bị lạ
-                dev_label = device_info or "Thiết bị lạ / Trình duyệt khác"
-                v_time = time.strftime("%H:%M:%S")
-                violation_text = f"Đăng nhập trái phép từ thiết bị khác: {dev_label} (Thiết bị gốc đã khóa: {bound_info})"
-                violations = existing.setdefault("anti_cheat_violations", [])
-                violations.append({
-                    "time": v_time,
-                    "type": "DEVICE_MISMATCH",
-                    "detail": violation_text
-                })
-                existing["anti_cheat_overall"] = "CHEATING"
-                existing["anti_cheat_summary"] = "CẢNH BÁO: Phát hiện đăng nhập từ 2 thiết bị khác nhau!"
-                
-                return {
-                    "error": (
-                        f"⛔ CẢNH BÁO GIAN LẬN THI CỬ:\n\n"
-                        f"Mã sinh viên '{student_id}' đã được đăng nhập làm bài trên một thiết bị khác:\n"
-                        f"[{bound_info} - Bắt đầu lúc {existing.get('device_first_login', 'trước đó')}].\n\n"
-                        f"Quy chế thi quy định: Mỗi thí sinh CHỈ ĐƯỢC PHÉP LÀM BÀI TRÊN 01 THIẾT BỊ DUY NHẤT!\n"
-                        f"Hệ thống đã ghi nhận vi phạm và phát tín hiệu cảnh báo tới Giám thị phòng thi.\n\n"
-                        f"Nếu máy tính của bạn bị hỏng/mất nguồn trong phòng thi, vui lòng báo trực tiếp Giám thị để được MỞ KHÓA ĐỔI MÁY."
-                    )
-                }
-
-            # Nếu cùng thiết bị hoặc vừa được Giám thị mở khóa thiết bị
-            if not bound_dev and device_id:
-                existing["device_id"] = device_id
-                existing["device_info"] = device_info or "Chưa xác định"
-                existing["device_first_login"] = time.strftime("%H:%M:%S")
-
-            # 3. Nếu phiên thi đang mở (hoặc vừa được Giảng viên mở lại), khôi phục bài làm dở
-            rem_sec = max(0, int(existing.get("end_time", now) - now))
-            if rem_sec > 0:
-                return {
-                    "student_id": student_id,
-                    "student_name": existing.get("student_name", student_name),
-                    "sbd": existing.get("sbd", sbd_val),
-                    "cohort": existing.get("cohort", cohort),
-                    "class_name": existing.get("class_name", class_name),
-                    "duration_minutes": existing.get("duration_minutes", duration_minutes),
-                    "remaining_seconds": rem_sec,
-                    "quiz_questions": existing.get("quiz_questions", []),
-                    "practice_cases": [
-                        {
-                            "case_index": idx + 1,
-                            "context": c.get("context", ""),
-                            "requirements": c.get("requirements", [])
-                        }
-                        for idx, c in enumerate(existing.get("practice_cases", []))
-                    ],
-                    "exam_token": existing.get("exam_token", ""),
-                    "saved_answers": existing.get("quiz_answers", {}),
-                    "is_resumed": True
-                }
+        # Lưu lịch sử lượt thi cũ nếu có yêu cầu force_new từ Giảng viên (L05)
+        attempt_history = []
+        if existing and force_new:
+            attempt_history = existing.get("attempt_history", [])
+            attempt_history.append({
+                "attempt_at": existing.get("start_time_iso", ""),
+                "quiz_score": existing.get("quiz_score", 0.0),
+                "word_scores": existing.get("word_scores", {}),
+                "is_submitted": existing.get("is_submitted", False),
+                "archived_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            })
 
         qbank_data = load_questions_bank_data()
         teacher_duration = int(qbank_data.get("config", {}).get("duration_minutes", 60))
@@ -986,7 +1037,8 @@ class ExamEngine:
             "final_score": 0.0,
             "anti_cheat_overall": "SAFE",
             "anti_cheat_summary": "Hợp lệ",
-            "anti_cheat_violations": []
+            "anti_cheat_violations": [],
+            "attempt_history": attempt_history
         }
 
         ACTIVE_SESSIONS[student_id] = session_data
@@ -1292,6 +1344,25 @@ class ExamEngine:
         if not session:
             return {"error": "Không tìm thấy phiên thi của sinh viên này!"}
 
+        # L04: Chống nhận đáp án sau khi hết giờ hoặc đã nộp
+        now = time.time()
+        if session.get("is_submitted", False):
+            # Khóa nguyên tử: Nếu đã nộp, trả về kết quả đã ghi nhận trước đó, không nhận đáp án mới hay thay đổi điểm
+            if session.get("quiz_results"):
+                return session["quiz_results"]
+            return {"error": "Bài thi đã được nộp trước đó, không thể nộp lại hoặc thay đổi kết quả!"}
+
+        if session.get("is_terminated", False):
+            return {"error": f"Phiên thi đã bị đình chỉ: {session.get('termination_reason', 'Vi phạm quy chế')}"}
+
+        # Hết giờ thi (cho phép độ trễ mạng tối đa 15 giây)
+        if now > (session.get("end_time", now) + 15):
+            session["is_submitted"] = True
+            save_active_sessions_backup()
+            if session.get("quiz_results"):
+                return session["quiz_results"]
+            return {"error": "Đã hết thời gian làm bài! Bài thi đã tự động khóa, không thể nộp thêm đáp án."}
+
         sec_cfg = GradingService.get_sections()
         quiz_max = float(sec_cfg.get("quiz_max", 3.0))
 
@@ -1314,12 +1385,19 @@ class ExamEngine:
         quiz_score = round((correct_count / total_questions) * quiz_max, 2)
         session["quiz_answers"] = student_answers
         session["quiz_score"] = quiz_score
+        receipt_code = f"REC-TN-{student_id}-{int(time.time()) % 100000:05d}"
+        session.setdefault("receipt_codes", {})["quiz"] = {
+            "code": receipt_code,
+            "timestamp": time.time(),
+            "time_str": time.strftime("%H:%M:%S - %d/%m/%Y")
+        }
         session["quiz_results"] = {
             "correct_count": correct_count,
             "total_questions": total_questions,
             "score": quiz_score,
             "max_score": quiz_max,
-            "details": details
+            "details": details,
+            "receipt_code": receipt_code
         }
         save_active_sessions_backup()
         return session["quiz_results"]
@@ -1329,6 +1407,19 @@ class ExamEngine:
         session = ACTIVE_SESSIONS.get(student_id)
         if not session:
             return {"error": "Không tìm thấy phiên thi!"}
+
+        # L04: Chống nhận file Word sau khi hết giờ hoặc đã nộp
+        now = time.time()
+        if session.get("is_submitted", False):
+            return {"error": "Bài thi đã được nộp trước đó, không thể nộp thêm file Word mới!"}
+
+        if session.get("is_terminated", False):
+            return {"error": f"Phiên thi đã bị đình chỉ: {session.get('termination_reason', 'Vi phạm quy chế')}"}
+
+        if now > (session.get("end_time", now) + 15):
+            session["is_submitted"] = True
+            save_active_sessions_backup()
+            return {"error": "Đã hết thời gian làm bài! Bài thi đã tự động khóa, không thể nộp thêm file Word."}
 
         token = session.get("exam_token")
         grader = DocxNghiDinh30Grader(docx_path, expected_student_id=student_id, expected_token=token)
@@ -1353,25 +1444,65 @@ class ExamEngine:
             "metadata": grade_result.get("metadata", {})
         }
 
-        # Tổng hợp chi tiết các lỗi gian lận từ cả 2 văn bản
+        # L07 & L08: Bảo toàn nhật ký hành vi cũ (TAB_SWITCH, DEVICE_MISMATCH...), không ghi đè mất cảnh báo
+        raw_violations = session.get("anti_cheat_violations", [])
+        clean_violations: List[Dict[str, Any]] = []
+        for rv in raw_violations:
+            norm = normalize_violation_entry(rv)
+            # Loại bỏ vi phạm DOCX cũ của chính case_index này để cập nhật bản nộp mới, giữ nguyên các vi phạm khác
+            if norm.get("source") == "DOCX_ANALYSIS" and norm.get("case_index") == case_index:
+                continue
+            clean_violations.append(norm)
+
+        # Bổ sung các vi phạm mới phát hiện từ tệp Word vừa nộp
+        now_str = time.strftime("%H:%M:%S")
+        for v_str in anti_cheat.get("violations", []):
+            clean_violations.append({
+                "time": now_str,
+                "type": "DOCX_VIOLATION",
+                "detail": f"[TH{case_index}] {v_str}",
+                "source": "DOCX_ANALYSIS",
+                "case_index": case_index
+            })
+
+        session["anti_cheat_violations"] = clean_violations
+
+        # Đánh giá tổng thể mức độ vi phạm chống gian lận
         c1_ac = session["word_scores"].get("case_1", {}).get("anti_cheat", {})
         c2_ac = session["word_scores"].get("case_2", {}).get("anti_cheat", {})
+        has_device_violation = any(v.get("type") == "DEVICE_MISMATCH" for v in clean_violations)
+        tab_switches = [v for v in clean_violations if v.get("type") == "TAB_SWITCH"]
+        docx_flagged = (c1_ac.get("status") == "FLAGGED" or c2_ac.get("status") == "FLAGGED")
+        docx_warning = (c1_ac.get("status") == "WARNING" or c2_ac.get("status") == "WARNING")
 
-        all_violations = []
-        for ac_item in [c1_ac, c2_ac]:
-            for v in ac_item.get("violations", []):
-                if v not in all_violations:
-                    all_violations.append(v)
-
-        session["anti_cheat_violations"] = all_violations
-        session["anti_cheat_summary"] = ", ".join(all_violations) if all_violations else "Hợp lệ"
-
-        if c1_ac.get("status") == "FLAGGED" or c2_ac.get("status") == "FLAGGED":
+        if has_device_violation or len(tab_switches) >= 3:
+            session["anti_cheat_overall"] = "CHEATING"
+        elif docx_flagged:
             session["anti_cheat_overall"] = "FLAGGED"
-        elif c1_ac.get("status") == "WARNING" or c2_ac.get("status") == "WARNING":
+        elif docx_warning or len(tab_switches) >= 1:
             session["anti_cheat_overall"] = "WARNING"
         else:
             session["anti_cheat_overall"] = "SAFE"
+
+        # Tổng hợp tóm tắt cảnh báo
+        summary_items = []
+        if has_device_violation:
+            summary_items.append("Đăng nhập khác thiết bị")
+        if tab_switches:
+            summary_items.append(f"Rời màn hình {len(tab_switches)} lần")
+        for cv in clean_violations:
+            if cv.get("source") == "DOCX_ANALYSIS":
+                summary_items.append(cv.get("detail", ""))
+
+        session["anti_cheat_summary"] = "; ".join(summary_items) if summary_items else "Hợp lệ"
+
+        # Sinh mã biên nhận nộp bài (Receipt Code)
+        receipt_code = f"REC-TH{case_index}-{student_id}-{int(time.time()) % 100000:05d}"
+        session.setdefault("receipt_codes", {})[f"case_{case_index}"] = {
+            "code": receipt_code,
+            "timestamp": time.time(),
+            "time_str": time.strftime("%H:%M:%S - %d/%m/%Y")
+        }
 
         save_active_sessions_backup()
 
@@ -1380,5 +1511,8 @@ class ExamEngine:
             "format_score": format_score_scaled,
             "format_max": format_max,
             "details": grade_result["details"],
-            "anti_cheat": anti_cheat
+            "anti_cheat": anti_cheat,
+            "receipt_code": receipt_code,
+            "anti_cheat_violations": clean_violations,
+            "anti_cheat_overall": session["anti_cheat_overall"]
         }

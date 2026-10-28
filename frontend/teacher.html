@@ -1750,6 +1750,26 @@
 
     <!-- Script Điều Khiển Teacher Dashboard -->
     <script>
+        // L09: Hàm làm sạch dữ liệu đầu vào chống XSS (Cross-Site Scripting)
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function sanitizeUrl(url) {
+            if (!url) return '';
+            const clean = String(url).trim();
+            if (clean.startsWith('http://') || clean.startsWith('https://')) {
+                return clean.replace(/"/g, '%22').replace(/'/g, '%27');
+            }
+            return '#';
+        }
+
         // BẢO MẬT CỔNG GIẢNG VIÊN - INTERCEPT FETCH CHO TẤT CẢ CÁC API
         const originalFetch = window.fetch;
         window.fetch = async function(url, options = {}) {
@@ -2159,31 +2179,31 @@
             tbody.innerHTML = students.map((s, idx) => `
                 <tr class="hover:bg-slate-50 transition border-b border-slate-100">
                     <td class="p-3.5 text-center font-bold text-slate-500">${idx + 1}</td>
-                    <td class="p-3.5 text-center font-mono font-bold text-amber-700 bg-amber-50/40">${s.sbd || s.student_id}</td>
-                    <td class="p-3.5 font-mono font-bold text-blue-700">${s.student_id}</td>
+                    <td class="p-3.5 text-center font-mono font-bold text-amber-700 bg-amber-50/40">${escapeHtml(s.sbd || s.student_id)}</td>
+                    <td class="p-3.5 font-mono font-bold text-blue-700">${escapeHtml(s.student_id)}</td>
                     <td class="p-3.5 font-bold text-slate-900">
-                        <div>${s.student_name}</div>
+                        <div>${escapeHtml(s.student_name)}</div>
                         <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
                             ${s.current_phase === 'WORD' ? 
                                 '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-file-word"></i> Đang gõ Word</span>' :
                                 '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><i class="fa-solid fa-list-check"></i> Đang làm Trắc nghiệm</span>'
                             }
-                            ${s.device_info ? `<span class="text-[10px] text-slate-500 font-normal flex items-center gap-1" title="Thiết bị: ${s.device_info} (Lúc ${s.device_first_login || 'bắt đầu'})"><i class="fa-solid fa-laptop text-[9px] text-blue-600"></i> ${s.device_info}</span>` : ''}
+                            ${s.device_info ? `<span class="text-[10px] text-slate-500 font-normal flex items-center gap-1" title="Thiết bị: ${escapeHtml(s.device_info)} (Lúc ${escapeHtml(s.device_first_login || 'bắt đầu')})"><i class="fa-solid fa-laptop text-[9px] text-blue-600"></i> ${escapeHtml(s.device_info)}</span>` : ''}
                         </div>
                     </td>
                     <td class="p-3.5 text-slate-600">
-                        <span class="font-bold text-slate-800">${s.cohort}</span><br>
-                        <span class="text-[11px] text-slate-500">${s.class_name}</span>
+                        <span class="font-bold text-slate-800">${escapeHtml(s.cohort)}</span><br>
+                        <span class="text-[11px] text-slate-500">${escapeHtml(s.class_name)}</span>
                     </td>
                     <td class="p-3.5 text-center font-semibold text-blue-600">${s.quiz_score}đ</td>
                     <td class="p-3.5 text-center text-purple-700 font-semibold">
                         ${s.case_1.format_score}đ
-                        ${s.case_1.gdrive_url ? `<br><a href="${s.case_1.gdrive_url}" target="_blank" class="inline-flex items-center gap-1 text-[10px] text-sky-700 hover:text-sky-900 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 mt-0.5" title="Mở file trên Google Drive (cttrung@ntt.edu.vn)"><i class="fa-brands fa-google-drive text-sky-600"></i> Drive</a>` : ''}
+                        ${s.case_1.gdrive_url ? `<br><a href="${sanitizeUrl(s.case_1.gdrive_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[10px] text-sky-700 hover:text-sky-900 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 mt-0.5" title="Mở file trên Google Drive"><i class="fa-brands fa-google-drive text-sky-600"></i> Drive</a>` : ''}
                     </td>
                     <td class="p-3.5 text-center font-bold ${s.case_1.content_score > 0 ? 'text-purple-800' : 'text-slate-400'}">${s.case_1.content_score}đ</td>
                     <td class="p-3.5 text-center text-indigo-700 font-semibold">
                         ${s.case_2.format_score}đ
-                        ${s.case_2.gdrive_url ? `<br><a href="${s.case_2.gdrive_url}" target="_blank" class="inline-flex items-center gap-1 text-[10px] text-sky-700 hover:text-sky-900 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 mt-0.5" title="Mở file trên Google Drive (cttrung@ntt.edu.vn)"><i class="fa-brands fa-google-drive text-sky-600"></i> Drive</a>` : ''}
+                        ${s.case_2.gdrive_url ? `<br><a href="${sanitizeUrl(s.case_2.gdrive_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[10px] text-sky-700 hover:text-sky-900 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 mt-0.5" title="Mở file trên Google Drive"><i class="fa-brands fa-google-drive text-sky-600"></i> Drive</a>` : ''}
                     </td>
                     <td class="p-3.5 text-center font-bold ${s.case_2.content_score > 0 ? 'text-indigo-800' : 'text-slate-400'}">${s.case_2.content_score}đ</td>
                     <td class="p-3.5 text-center font-extrabold text-sm ${s.total_score >= 5 ? 'text-emerald-600' : 'text-rose-600'}">${s.total_score}đ</td>
@@ -2191,8 +2211,9 @@
                         ${(s.anti_cheat_violations && s.anti_cheat_violations.length > 0) ? `
                             <div class="flex flex-col items-center gap-1">
                                 ${s.anti_cheat_violations.map(v => {
-                                    const text = (typeof v === 'string') ? v : (v.detail || v.type || JSON.stringify(v));
-                                    const lower = text.toLowerCase();
+                                    const rawText = (typeof v === 'string') ? v : (v.detail || v.type || JSON.stringify(v));
+                                    const safeText = escapeHtml(rawText);
+                                    const lower = rawText.toLowerCase();
                                     let icon = 'fa-triangle-exclamation';
                                     let bg = 'bg-rose-100 text-rose-800 border-rose-300';
                                     if (lower.includes('thiết bị') || lower.includes('device')) {
@@ -2211,8 +2232,8 @@
                                         icon = 'fa-user-pen';
                                         bg = 'bg-amber-100 text-amber-800 border-amber-300';
                                     }
-                                    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${bg} border shadow-2xs whitespace-nowrap" title="${text}">
-                                        <i class="fa-solid ${icon}"></i> ${text}
+                                    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${bg} border shadow-2xs whitespace-nowrap" title="${safeText}">
+                                        <i class="fa-solid ${icon}"></i> ${safeText}
                                     </span>`;
                                 }).join('')}
                             </div>
@@ -2225,7 +2246,7 @@
                     </td>
                     <td class="p-3.5 text-center">
                         ${s.is_terminated ? `
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 shadow-2xs" title="${s.termination_reason || 'Đình chỉ'}">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 shadow-2xs" title="${escapeHtml(s.termination_reason || 'Đình chỉ')}">
                                 <i class="fa-solid fa-ban"></i> Đã đình chỉ
                             </span>
                         ` : (!s.is_submitted && s.remaining_seconds > 0 ? `
